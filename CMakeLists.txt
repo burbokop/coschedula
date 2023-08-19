@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27.1)
 project(
   coschedula
   LANGUAGES CXX
-  VERSION 0.0.1
+  VERSION 0.0.12
   DESCRIPTION "Asynchronous computations library based on coroutines"
   HOMEPAGE_URL "https://github.com/burbokop/coschedula")
 
@@ -82,6 +82,16 @@ install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
 
 # set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+
+if(UNIX)
+  message("LINUX: USING DEB;STGZ GENERATOR ")
+  set(CPACK_GENERATOR "DEB;STGZ")
+elseif(WIN32)
+  message("WIN32: USING ZIP GENERATOR ")
+  set(CPACK_GENERATOR ZIP)
+else()
+  message("Nothing Found for GENERATOR 232323232322323")
+endif()
 
 set(CPACK_PACKAGE_NAME "lib${PROJECT_NAME}")
 set(CPACK_PACKAGE_CONTACT "io.github.burbokop")

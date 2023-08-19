@@ -1,25 +1,40 @@
 
 on:
-  workflow_run:
-    workflows: ["Ubuntu-22.04", "Windows-2022"]
-    branches: [ "master" ]
-    types:
-      - completed
+  push:
     tags:
       - 'v*'
 
-name: Release
+name: CMake on multiple platforms (Release)
 
 jobs:
   build:
-    name: Upload Release Asset
+    name: Build
+    uses: burbokop/coschedula/.github/workflows/cmake-multi-platform.yml@master
+    secrets:
+      envPAT: ${{ secrets.envPAT }}
+
+  release:
+    name: Release
+    needs: build
     runs-on: ubuntu-latest
+    permissions: write-all
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Build project # This would actually build your project, using zip for an example artifact
+      - name: Check project version
+        shell: bash
         run: |
-          zip --junk-paths my-artifact README.md
+          if [[ "v${{ needs.build.outputs.project-version }}" != "${{ github.ref_name }}" ]]; then
+            echo "CMake version 'v${{ needs.build.outputs.project-version }}' does not match tag '${{ github.ref_name }}'"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v3
+        with:
+          path: ${{ github.workspace }}
+
+      - name: Display structure of downloaded files
+        run: ls -R
+        working-directory: ${{ github.workspace }}
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -30,13 +45,33 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset
+
+      - name: Upload libcoschedula-${{ needs.build.outputs.project-version }}-Linux.deb
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./my-artifact.zip
-          asset_name: my-artifact.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/ubuntu-22.04.gcc.Release/libcoschedula-${{ needs.build.outputs.project-version }}-Linux.deb
+          asset_name: libcoschedula-${{ needs.build.outputs.project-version }}-Linux.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload libcoschedula-${{ needs.build.outputs.project-version }}-Linux.sh
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/ubuntu-22.04.gcc.Release/libcoschedula-${{ needs.build.outputs.project-version }}-Linux.sh
+          asset_name: libcoschedula-${{ needs.build.outputs.project-version }}-Linux.sh
+          asset_content_type: application/x-shellscript
+
+      - name: Upload libcoschedula-${{ needs.build.outputs.project-version }}-win64.zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/windows-2022.cl.Release/libcoschedula-${{ needs.build.outputs.project-version }}-win64.zip
+          asset_name: libcoschedula-${{ needs.build.outputs.project-version }}-win64.zip
           asset_content_type: application/zip
