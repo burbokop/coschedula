@@ -13,7 +13,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(ENABLE_STATIC_BUILD "Build as static library" OFF)
 option(ENABLE_TESTS "Enable tests" ON)
 
-set(CMAKE_CXX_CPPLINT "cpplint")
+find_program(CPPLINT_EXISTS "cpplint")
+if(CPPLINT_EXISTS)
+  set(CMAKE_CXX_CPPLINT "cpplint")
+endif()
+
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 include(GNUInstallDirs)
 
