@@ -1,6 +1,6 @@
 // Copyright 2023 Borys Boiko
 
-#include "../../src/task.h"
+#include "../src/task.h"
 #include <gtest/gtest.h>
 #include <list>
 #include <string>
