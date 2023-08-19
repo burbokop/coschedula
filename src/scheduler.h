@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "source_location.h"
 #include <cassert>
 #include <coroutine>
 #include <functional>
 #include <optional>
 #include <ostream>
-#include <source_location>
 #include <sstream>
 
 namespace coschedula {
@@ -21,7 +21,7 @@ struct scheduler
     scheduler(const scheduler &) = delete;
     scheduler(scheduler &&) = delete;
 
-    using Logger = std::function<void(std::source_location loc, const std::string &)>;
+    using Logger = std::function<void(source_location loc, const std::string &)>;
 
     template<std::derived_from<scheduler> S>
     inline static S instance;
@@ -30,12 +30,12 @@ struct scheduler
     {
         std::coroutine_handle<> h;
         bool suspended;
-        std::source_location loc;
+        source_location loc;
         std::optional<std::coroutine_handle<>> dep;
     };
 
     void add_initialy_suspended(std::coroutine_handle<> h,
-                                std::source_location loc = std::source_location::current())
+                                source_location loc = source_location::current())
     {
         m_tasks.push_back({.h = h, .suspended = true, .loc = loc, .dep = std::nullopt});
         log([](std::ostream &stream) -> std::ostream & { return stream << "ADDED AND SUSPENDED"; },
@@ -150,7 +150,7 @@ protected:
     virtual std::size_t next(std::size_t current) { return (current + 1) % m_tasks.size(); }
 
     template<stream_printer P>
-    void log(P &&printer, std::source_location loc = std::source_location::current())
+    void log(P &&printer, source_location loc = source_location::current())
     {
         if (m_logger) {
             std::ostringstream ss;

@@ -15,7 +15,7 @@ struct task
         constexpr bool await_ready() const noexcept { return false; }
         template<typename P>
         void await_suspend(std::coroutine_handle<P> h,
-                           std::source_location loc = std::source_location::current()) const noexcept
+                           source_location loc = source_location::current()) const noexcept
         {
             //std::cout << __PRETTY_FUNCTION__ << std::endl;
             scheduler::instance<S>.add_initialy_suspended(h, loc);
@@ -91,7 +91,7 @@ struct task
         //std::cout << __PRETTY_FUNCTION__ << std::endl;
     }
     task(task &&c)
-        : m_handle(std::exchange(c.handle, nullptr))
+        : m_handle(std::exchange(c.m_handle, nullptr))
     {}
     task(const task &p) = delete;
 

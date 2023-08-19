@@ -35,7 +35,7 @@ constexpr const char *BrightWhite = "\x1B[97m";
 
 constexpr const char *Reset = "\033[0m";
 
-std::function<std::ostream &(std::ostream &)> print(std::source_location loc)
+std::function<std::ostream &(std::ostream &)> print(coschedula::source_location loc)
 {
     return [loc](std::ostream &s) -> std::ostream & {
         return s << "file://" << loc.file_name() << ":" << loc.line() << " " << loc.function_name();
@@ -77,10 +77,10 @@ coschedula::task<std::string> bar()
 
 int main()
 {
-    //coro::scheduler::instance<coro::scheduler>.installLogger(
-    //    [](std::source_location loc, const std::string &message) {
-    //        std::cout << Yellow << print(loc) << ": " << message << Reset << std::endl;
-    //    });
+    coschedula::scheduler::instance<coschedula::scheduler>.installLogger(
+        [](coschedula::source_location loc, const std::string &message) {
+            std::cout << Yellow << print(loc) << ": " << message << Reset << std::endl;
+        });
 
     test();
 
