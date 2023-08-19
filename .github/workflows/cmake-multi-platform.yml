@@ -16,10 +16,10 @@ on:
     outputs:
       project-version:
         description: "Project version described in CMakeLists.txt"
-        value: ${{ jobs.build.outputs.project-version }}
+        value: ${{ jobs.build-test-pack.outputs.project-version }}
 
 jobs:
-  build:
+  build-test-pack:
     runs-on: ${{ matrix.os }}
     outputs:
       project-version: ${{ steps.get-project-version.outputs.project-version }}
