@@ -7,6 +7,12 @@
 
 namespace coschedula {
 
+/**
+ * @brief async - call function in another thread and motitor its completion
+ * @param f - function to call
+ * @param args - args passed to `f`
+ * @return result of `f`
+ */
 template<typename T, std::derived_from<scheduler> S = scheduler, typename... Args>
 task<T, S> async(auto &&f, Args &&...args)
 {

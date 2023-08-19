@@ -15,6 +15,11 @@ namespace coschedula {
 template<typename T>
 concept stream_printer = requires(T v, std::ostream &s) { v(s); };
 
+/**
+ * @brief The scheduler class - provides scheduling mechanism for all task related to it
+ * The scheduler has single active instance for specific type derived from `scheduler` held in `scheduler::instance`
+ * @note To create some bunch of coroutines working with one scheduler instance and another bunch with second instance you need to create two different types derived from `scheduler`
+ */
 struct scheduler
 {
     scheduler() = default;
@@ -115,6 +120,15 @@ struct scheduler
         return false;
     }
 
+    /**
+     * @brief proceed - do one cicle of scheduling
+     * Can be called in while:
+     * ```
+     * while(scheduler::instance<scheduler>::proceed()){}
+     * ```
+     * or in some timer if using with some frameworks
+     * @return true if all tasks completed
+     */
     bool proceed()
     {
         if (m_tasks.empty()) {
@@ -132,6 +146,10 @@ struct scheduler
         return true;
     }
 
+    /**
+     * @brief proceed_until_empty - block current thread untill all tasks done
+     * @return true if any task was executed
+     */
     bool proceed_until_empty()
     {
         if (m_tasks.empty()) {
@@ -142,13 +160,31 @@ struct scheduler
         return true;
     }
 
+    /**
+     * @brief installLogger - set logger
+     * @default logs disabled
+     * @param logger
+     */
     void installLogger(Logger logger) { m_logger = logger; }
 
+    /**
+     * @brief tasks - current running tasks
+     */
     const std::vector<task_info> &tasks() const { return m_tasks; };
 
 protected:
+    /**
+     * @brief next - calculate next task to give control
+     * @param current - current running task
+     * @note override if you want to specify another scheduling rule
+     */
     virtual std::size_t next(std::size_t current) { return (current + 1) % m_tasks.size(); }
 
+    /**
+     * @brief log - print logs
+     * @param printer - stream printer functor `(std::stream&) -> std::stream&`
+     * @param loc - code location
+     */
     template<stream_printer P>
     void log(P &&printer, source_location loc = source_location::current())
     {
@@ -165,6 +201,13 @@ private:
     Logger m_logger;
 };
 
+/**
+ * @brief The suspend class - suspends current coroutine and ask scheduler to give controls to another
+ * Example:
+ * ```
+ * co_await coschedula::suspend{};
+ * ```
+ */
 class suspend
 {
 public:

@@ -10,6 +10,11 @@
 
 namespace coschedula::fs {
 
+/**
+ * @brief read - read whole file according to execution policy `exec`
+ * @param path - path to file
+ * @return file as std::string with char `C`
+ */
 template<typename C = std::string::value_type,
          execution exec = execution::seq,
          std::derived_from<scheduler> S = scheduler>
