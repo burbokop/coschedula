@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_STATIC_BUILD "Build as static library" OFF)
 option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_BENCHMARKS "Enable benchmarks" ON)
 
 find_program(CPPLINT_EXISTS "cpplint")
 if(CPPLINT_EXISTS)
@@ -39,6 +40,10 @@ add_executable(unknown_project src/main.cpp src/test.h src/test.cpp)
 if(ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(ENABLE_BENCHMARKS)
+  add_subdirectory(benchmarks)
 endif()
 
 target_include_directories(
