@@ -18,9 +18,9 @@ include(3rdparty_googlebenchmark.cmake)
 add_executable(${PROJECT_NAME} task_bench.cpp word_iterator.h random_gen.h
                                complexity_bench.cpp)
 if(MSVC)
-  set_property(
-    TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY
-                                    "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  #set_property(
+  #  TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY
+  #                                  "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 add_dependencies(${PROJECT_NAME} GoogleBenchmark)

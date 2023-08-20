@@ -12,14 +12,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_STATIC_BUILD "Build as static library" OFF)
 option(ENABLE_TESTS "Enable tests" ON)
-option(ENABLE_BENCHMARKS "Enable benchmarks" ON)
+
+if(MSVC)
+  option(ENABLE_BENCHMARKS "Enable benchmarks (TODO: fix for msvc)" OFF)
+else()
+  option(ENABLE_BENCHMARKS "Enable benchmarks" ON)
+endif()
+
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 find_program(CPPLINT_EXISTS "cpplint")
 if(CPPLINT_EXISTS)
   set(CMAKE_CXX_CPPLINT "cpplint")
 endif()
 
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 include(GNUInstallDirs)
 
 if(ENABLE_STATIC_BUILD)
