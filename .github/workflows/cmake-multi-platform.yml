@@ -91,12 +91,23 @@ jobs:
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       run: ctest --build-config ${{ matrix.build_type }}
 
+    - name: Check benchmarks existence
+      id: check-benchmarks
+      uses: andstor/file-existence-action@v2
+      with:
+        files: ${{ steps.strings.outputs.build-output-dir }}/benchmarks/coschedula_benchmarks
+
     - name: Benchmark
+      id: benchmark
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      if: steps.check-benchmarks.outputs.files_exists == 'true' && matrix.build_type == 'Release'
       shell: bash
-      run: ./benchmarks/coschedula_benchmarks --benchmark_format=json > benchmark_result.json
+      run: |
+        ./benchmarks/coschedula_benchmarks --benchmark_format=json > benchmark_result.json
+        echo "benchmarks-enabled=true" >> "$GITHUB_OUTPUT"
 
     - name: Store benchmark result
+      if: steps.check-benchmarks.outputs.files_exists == 'true' && matrix.build_type == 'Release'
       uses: benchmark-action/github-action-benchmark@v1
       with:
         tool: 'googlecpp'

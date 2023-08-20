@@ -19,8 +19,8 @@ inline std::string gen_string(std::size_t len)
     result.reserve(len);
     for (std::size_t i = 0; i < len; ++i) {
         std::random_device rd;
-        std::uniform_int_distribution<std::string::value_type> dist('a', 'z');
-        result += dist(rd);
+        std::uniform_int_distribution<std::uint16_t> dist('a', 'z');
+        result += static_cast<std::string::value_type>(dist(rd));
     }
     return result;
 }

@@ -17,9 +17,9 @@ enable_testing()
 
 add_executable(${PROJECT_NAME} task_suite.cpp)
 if(MSVC)
-  set_property(
-    TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY
-                                    "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  #set_property(
+  #  TARGET ${PROJECT_NAME} PROPERTY MSVC_RUNTIME_LIBRARY
+  #                                  "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 include(3rdparty_googletest.cmake)
