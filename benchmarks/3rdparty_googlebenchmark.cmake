@@ -12,7 +12,7 @@ ExternalProject_Add(
              -DBENCHMARK_ENABLE_GTEST_TESTS=OFF)
 
 function(target_link_google_benchmark TARGET)
-  add_dependencies(${TARGET} GoogleTest)
+  add_dependencies(${TARGET} GoogleBenchmark)
   target_include_directories(${TARGET}
                              PRIVATE ${GOOGLE_BENCHMARK_INSTALL_PREFIX}/include)
   target_link_directories(${TARGET} PRIVATE
