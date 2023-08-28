@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <ostream>
+#include <set>
 #include <sstream>
 
 namespace coschedula {
@@ -26,7 +27,7 @@ struct scheduler
     scheduler(const scheduler &) = delete;
     scheduler(scheduler &&) = delete;
 
-    using Logger = std::function<void(source_location loc, const std::string &)>;
+    using logger = std::function<void(source_location loc, const std::string &)>;
 
     template<std::derived_from<scheduler> S>
     inline static S instance;
@@ -39,12 +40,33 @@ struct scheduler
         std::optional<std::coroutine_handle<>> dep;
     };
 
+    class subscriber
+    {
+    public:
+        subscriber() = default;
+        virtual ~subscriber() = default;
+
+        subscriber(const subscriber &) = delete;
+        subscriber(subscriber &&) = delete;
+
+        virtual void task_started(const task_info &) = 0;
+        virtual void task_finished(const task_info &) = 0;
+        virtual void task_suspended(const task_info &) = 0;
+        virtual void task_resumed(const task_info &) = 0;
+
+    private:
+    };
+
     void add_initialy_suspended(std::coroutine_handle<> h,
                                 source_location loc = source_location::current())
     {
         m_tasks.push_back({.h = h, .suspended = true, .loc = loc, .dep = std::nullopt});
         log([](std::ostream &stream) -> std::ostream & { return stream << "ADDED AND SUSPENDED"; },
             loc);
+
+        for (const auto &s : m_subscribers) {
+            s->task_started(m_tasks.back());
+        }
     }
 
     bool resume(std::size_t i)
@@ -54,6 +76,10 @@ struct scheduler
             m_tasks[i].suspended = false;
             log([](std::ostream &stream) -> std::ostream & { return stream << "RESUMED"; },
                 m_tasks[i].loc);
+
+            for (const auto &s : m_subscribers) {
+                s->task_resumed(m_tasks[i]);
+            }
             m_tasks[i].h.resume();
             return true;
         }
@@ -81,6 +107,11 @@ struct scheduler
             if (dep && !dep->done()) {
                 m_tasks[i].dep = dep;
             }
+
+            for (const auto &s : m_subscribers) {
+                s->task_suspended(m_tasks[i]);
+            }
+
             return true;
         }
         return false;
@@ -110,6 +141,10 @@ struct scheduler
                     m_tasks[j].dep = std::nullopt;
                     break;
                 }
+            }
+
+            for (const auto &s : m_subscribers) {
+                s->task_finished(m_tasks[i]);
             }
 
             m_tasks.erase(m_tasks.begin() + i);
@@ -165,7 +200,10 @@ struct scheduler
      * @default logs disabled
      * @param logger
      */
-    void installLogger(Logger logger) { m_logger = logger; }
+    void install_logger(logger logger) { m_logger = logger; }
+
+    bool install_subscriber(subscriber &s) { return m_subscribers.insert(&s).second; }
+    bool deinstall_subscriber(subscriber &s) { return m_subscribers.erase(&s) != 0; }
 
     /**
      * @brief tasks - current running tasks
@@ -198,7 +236,8 @@ protected:
 private:
     std::size_t m_i = 0;
     std::vector<task_info> m_tasks;
-    Logger m_logger;
+    logger m_logger;
+    std::set<subscriber *> m_subscribers;
 };
 
 /**
