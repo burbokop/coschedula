@@ -77,7 +77,7 @@ coschedula::task<std::string> bar()
 
 int main()
 {
-    coschedula::scheduler::instance<coschedula::scheduler>.installLogger(
+    coschedula::scheduler::instance<coschedula::scheduler>.install_logger(
         [](coschedula::source_location loc, const std::string &message) {
             std::cout << Yellow << print(loc) << ": " << message << Reset << std::endl;
         });
