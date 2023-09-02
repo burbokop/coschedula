@@ -73,12 +73,9 @@ struct task
     {
         task get_return_object() noexcept { return {*this}; }
 
-        void return_value(T v) noexcept
-        {
-            result = std::move(v);
-        }
+        void return_value(T v) noexcept { result = std::move(v); }
 
-        std::optional<T> result;
+        std::optional<T> result = std::nullopt;
     };
 
     using promise_type =
@@ -135,20 +132,13 @@ struct task
     std::optional<T> result() const
         requires(!std::is_same_v<T, void>)
     {
-        return m_handle.promise().result;
+        return m_handle.done() ? m_handle.promise().result : std::nullopt;
     }
 
     /**
      * @return true if task is completed
      */
-    bool done() const
-    {
-        if constexpr (std::is_same_v<T, void>) {
-            return m_handle.promise().result_received;
-        } else {
-            return m_handle.promise().result.has_value();
-        }
-    }
+    bool done() const { return m_handle.done(); }
 
 private:
     std::coroutine_handle<promise_type> m_handle;
