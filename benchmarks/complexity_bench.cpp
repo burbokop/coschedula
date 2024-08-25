@@ -1,3 +1,4 @@
+#include "../src/global_scheduler.h"
 #include "../src/task.h"
 #include "random_gen.h"
 #include <benchmark/benchmark.h>
@@ -8,10 +9,10 @@ namespace {
 
 void num_of_tasks(benchmark::State &state)
 {
-    struct s : scheduler
+    struct s : default_task_registry
     {};
 
-    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, s> {
+    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, global_scheduler<s>> {
         std::size_t sum = 0;
         for (std::size_t i = 0; i < 256; ++i) {
             sum += 1;
@@ -21,23 +22,23 @@ void num_of_tasks(benchmark::State &state)
 
     for (auto _ : state) {
         (void) _;
-        std::vector<::coschedula::task<std::size_t, s>> tasks;
+        std::vector<::coschedula::task<std::size_t, global_scheduler<s>>> tasks;
         tasks.reserve(state.range(0));
         for (std::size_t i = 0; i < state.range(0); ++i) {
             tasks.push_back(task_coro());
         }
 
-        scheduler::instance<s>.proceed_until_empty();
+        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
     }
     state.SetComplexityN(state.range(0));
 }
 
 void num_of_tasks_async(benchmark::State &state)
 {
-    struct s : scheduler
+    struct s : default_task_registry
     {};
 
-    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, s> {
+    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, global_scheduler<s>> {
         std::size_t sum = 0;
         for (std::size_t i = 0; i < 256; ++i) {
             sum += 1;
@@ -48,13 +49,13 @@ void num_of_tasks_async(benchmark::State &state)
 
     for (auto _ : state) {
         (void) _;
-        std::vector<::coschedula::task<std::size_t, s>> tasks;
+        std::vector<::coschedula::task<std::size_t, global_scheduler<s>>> tasks;
         tasks.reserve(state.range(0));
         for (std::size_t i = 0; i < state.range(0); ++i) {
             tasks.push_back(task_coro());
         }
 
-        scheduler::instance<s>.proceed_until_empty();
+        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
     }
     state.SetComplexityN(state.range(0));
 }
