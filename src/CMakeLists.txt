@@ -26,4 +26,6 @@ target_sources(
          $<INSTALL_INTERFACE:${INSTALLDIR}/async.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/fs.h>
          $<INSTALL_INTERFACE:${INSTALLDIR}/fs.h>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/runners.h>
+         $<INSTALL_INTERFACE:${INSTALLDIR}/runners.h>
   PRIVATE fs.cpp)
