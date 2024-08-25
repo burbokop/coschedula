@@ -13,8 +13,13 @@ namespace coschedula {
  * @param args - args passed to `f`
  * @return result of `f`
  */
-template<typename T, std::derived_from<scheduler> S = scheduler, typename... Args>
+template<typename T, scheduler S = per_thread_scheduler<default_task_registry>, typename... Args>
 task<T, S> async(auto &&f, Args &&...args)
+    requires requires {
+        {
+            f(std::forward<Args>(args)...)
+        } -> std::same_as<T>;
+    }
 {
     auto future = std::async(std::launch::async, f, std::forward<Args>(args)...);
     while (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {

@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "scheduler.h"
+#include "default_task_registry.h"
+#include "per_thread_scheduler.h"
 #include <utility>
 
 namespace coschedula {
@@ -31,7 +32,7 @@ namespace coschedula {
  * }
  * ```
  */
-template<typename T, std::derived_from<scheduler> S = scheduler>
+template<typename T = void, scheduler S = per_thread_scheduler<default_task_registry>>
 struct task
 {
     struct init_suspend
@@ -41,7 +42,7 @@ struct task
         void await_suspend(std::coroutine_handle<P> h,
                            source_location loc = source_location::current()) const noexcept
         {
-            scheduler::instance<S>.add_initialy_suspended(h, loc);
+            S::add_initialy_suspended(h, loc);
         }
 
         void await_resume() const noexcept {}
@@ -78,8 +79,8 @@ struct task
         std::optional<T> result = std::nullopt;
     };
 
-    using promise_type =
-        typename std::conditional<std::is_same_v<T, void>, void_promise_type, value_promise_type>::type;
+    using promise_type
+        = std::conditional_t<std::is_same_v<T, void>, void_promise_type, value_promise_type>;
 
     task(promise_type &p)
         : m_handle(std::coroutine_handle<promise_type>::from_promise(p))
@@ -108,19 +109,15 @@ struct task
             constexpr bool await_ready() const noexcept { return false; }
             void await_suspend(std::coroutine_handle<> h) const noexcept
             {
-                auto &sch = scheduler::instance<S>;
-                if (auto i = sch.indexOf(h)) {
-                    const auto ok
-                        = sch.mark_suspended(*i,
-                                             std::coroutine_handle<promise_type>::from_promise(p));
-                    assert(ok);
-                }
+                S::await_suspend(h, std::coroutine_handle<promise_type>::from_promise(p));
             }
 
             T await_resume() const noexcept
             {
-                assert(p.result);
-                return *p.result;
+                if constexpr (!std::is_same_v<T, void>) {
+                    assert(p.result);
+                    return *p.result;
+                }
             }
         };
         return awaiter{m_handle.promise()};
@@ -142,6 +139,34 @@ struct task
 
 private:
     std::coroutine_handle<promise_type> m_handle;
+};
+
+/**
+ * @brief The suspend class - suspends current coroutine and ask scheduler to give controls to another
+ * Example:
+ * ```
+ * co_await coschedula::suspend{};
+ * ```
+ */
+class suspend
+{
+public:
+    auto operator co_await() { return awaiter{}; }
+
+private:
+    struct awaiter
+    {
+        constexpr bool await_ready() const noexcept { return false; }
+
+        template<typename P>
+        void await_suspend(std::coroutine_handle<P> h) const noexcept
+            requires(scheduler<typename P::related_scheduler>)
+        {
+            P::related_scheduler::suspend(h);
+        }
+
+        void await_resume() const noexcept {}
+    };
 };
 
 } // namespace coschedula

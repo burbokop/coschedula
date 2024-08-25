@@ -17,7 +17,7 @@ namespace coschedula::fs {
  */
 template<typename C = std::string::value_type,
          execution exec = execution::seq,
-         std::derived_from<scheduler> S = scheduler>
+         scheduler S = per_thread_scheduler<default_task_registry>>
 task<std::basic_string<C>, S> read(const std::filesystem::path path)
 {
     if constexpr (exec == execution::par) {
