@@ -8,7 +8,23 @@
 
 namespace coschedula::tests {
 
-TEST(global_scheduler_suite, void_task)
+class global_scheduler_suite : public ::testing::Test
+{
+protected:
+    template<typename T, typename S>
+    static std::optional<T> result(const task<T, S> &t)
+    {
+        return t.result();
+    }
+
+    template<typename T, typename S>
+    static bool done(const task<T, S> &t)
+    {
+        return t.done();
+    }
+};
+
+TEST_F(global_scheduler_suite, void_task)
 {
     struct s : public default_task_registry
     {};
@@ -20,13 +36,13 @@ TEST(global_scheduler_suite, void_task)
     };
     const auto t = void_task_coro();
     ASSERT_FALSE(entered);
-    ASSERT_FALSE(t.done());
+    ASSERT_FALSE(done(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
-    ASSERT_TRUE(t.done());
+    ASSERT_TRUE(done(t));
 }
 
-TEST(global_scheduler_suite, int_value_task)
+TEST_F(global_scheduler_suite, int_value_task)
 {
     struct s : public default_task_registry
     {};
@@ -38,15 +54,15 @@ TEST(global_scheduler_suite, int_value_task)
     };
     const auto t = value_task_coro();
     ASSERT_FALSE(entered);
-    ASSERT_FALSE(t.done());
-    ASSERT_FALSE(t.result());
+    ASSERT_FALSE(done(t));
+    ASSERT_FALSE(result(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), 10);
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), 10);
 }
 
-TEST(global_scheduler_suite, string_value_task)
+TEST_F(global_scheduler_suite, string_value_task)
 {
     struct s : public default_task_registry
     {};
@@ -58,15 +74,15 @@ TEST(global_scheduler_suite, string_value_task)
     };
     const auto t = value_task_coro();
     ASSERT_FALSE(entered);
-    ASSERT_FALSE(t.done());
-    ASSERT_FALSE(t.result());
+    ASSERT_FALSE(done(t));
+    ASSERT_FALSE(result(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), "10");
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), "10");
 }
 
-TEST(global_scheduler_suite, two_tasks)
+TEST_F(global_scheduler_suite, two_tasks)
 {
     struct s : public default_task_registry
     {};
@@ -84,22 +100,22 @@ TEST(global_scheduler_suite, two_tasks)
     const auto t0 = task_coro0();
     const auto t1 = task_coro1();
     ASSERT_EQ(seq, std::vector<std::size_t>{});
-    ASSERT_FALSE(t0.done());
-    ASSERT_FALSE(t1.done());
-    ASSERT_FALSE(t0.result());
-    ASSERT_FALSE(t1.result());
+    ASSERT_FALSE(done(t0));
+    ASSERT_FALSE(done(t1));
+    ASSERT_FALSE(result(t0));
+    ASSERT_FALSE(result(t1));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 1);
-    ASSERT_TRUE(t0.done());
-    ASSERT_TRUE(t1.done());
-    ASSERT_TRUE(t0.result());
-    ASSERT_TRUE(t1.result());
-    ASSERT_EQ(t0.result(), "10");
-    ASSERT_EQ(t1.result(), "20");
+    ASSERT_TRUE(done(t0));
+    ASSERT_TRUE(done(t1));
+    ASSERT_TRUE(result(t0));
+    ASSERT_TRUE(result(t1));
+    ASSERT_EQ(result(t0), "10");
+    ASSERT_EQ(result(t1), "20");
 }
 
-TEST(global_scheduler_suite, suspend)
+TEST_F(global_scheduler_suite, suspend)
 {
     struct s : public default_task_registry
     {};
@@ -121,24 +137,24 @@ TEST(global_scheduler_suite, suspend)
     const auto t0 = task_coro0();
     const auto t1 = task_coro1();
     ASSERT_EQ(seq, std::vector<std::size_t>{});
-    ASSERT_FALSE(t0.done());
-    ASSERT_FALSE(t1.done());
-    ASSERT_FALSE(t0.result());
-    ASSERT_FALSE(t1.result());
+    ASSERT_FALSE(done(t0));
+    ASSERT_FALSE(done(t1));
+    ASSERT_FALSE(result(t0));
+    ASSERT_FALSE(result(t1));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 2);
     ASSERT_EQ(seq[2], 1);
     ASSERT_EQ(seq[3], 3);
-    ASSERT_TRUE(t0.done());
-    ASSERT_TRUE(t1.done());
-    ASSERT_TRUE(t0.result());
-    ASSERT_TRUE(t1.result());
-    ASSERT_EQ(t0.result(), "10");
-    ASSERT_EQ(t1.result(), "20");
+    ASSERT_TRUE(done(t0));
+    ASSERT_TRUE(done(t1));
+    ASSERT_TRUE(result(t0));
+    ASSERT_TRUE(result(t1));
+    ASSERT_EQ(result(t0), "10");
+    ASSERT_EQ(result(t1), "20");
 }
 
-TEST(global_scheduler_suite, dep)
+TEST_F(global_scheduler_suite, dep)
 {
     struct s : public default_task_registry
     {};
@@ -161,17 +177,17 @@ TEST(global_scheduler_suite, dep)
         seq.push_back(3);
         const auto d = dep_task_coro();
         seq.push_back(4);
-        dep_done_before_await = d.done();
+        dep_done_before_await = done(d);
         const auto dep_res = co_await d;
         seq.push_back(5);
-        dep_done_after_await = d.done();
+        dep_done_after_await = done(d);
         co_return dep_res + "20";
     };
 
     const auto t = task_coro();
     ASSERT_EQ(seq, std::vector<std::size_t>{});
-    ASSERT_FALSE(t.done());
-    ASSERT_FALSE(t.result());
+    ASSERT_FALSE(done(t));
+    ASSERT_FALSE(result(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 3);
     ASSERT_EQ(seq[1], 4);
@@ -179,13 +195,13 @@ TEST(global_scheduler_suite, dep)
     ASSERT_EQ(seq[3], 1);
     ASSERT_EQ(seq[4], 2);
     ASSERT_EQ(seq[5], 5);
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), "1020");
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), "1020");
     ASSERT_FALSE(dep_done_before_await);
     ASSERT_TRUE(dep_done_after_await);
 }
 
-TEST(global_scheduler_suite, two_dep)
+TEST_F(global_scheduler_suite, two_dep)
 {
     struct s : public default_task_registry
     {};
@@ -223,21 +239,21 @@ TEST(global_scheduler_suite, two_dep)
         seq.push_back(7);
         const auto d1 = dep_task_coro1();
         seq.push_back(8);
-        dep0_done_before_await = d0.done();
-        dep1_done_before_await = d1.done();
+        dep0_done_before_await = done(d0);
+        dep1_done_before_await = done(d1);
         const auto dep0_res = co_await d0;
         seq.push_back(9);
         const auto dep1_res = co_await d1;
         seq.push_back(10);
-        dep0_done_after_await = d0.done();
-        dep1_done_after_await = d1.done();
+        dep0_done_after_await = done(d0);
+        dep1_done_after_await = done(d1);
         co_return dep0_res + dep1_res + "30";
     };
 
     const auto t = task_coro();
     ASSERT_EQ(seq, std::vector<std::size_t>{});
-    ASSERT_FALSE(t.done());
-    ASSERT_FALSE(t.result());
+    ASSERT_FALSE(done(t));
+    ASSERT_FALSE(result(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 6);
     ASSERT_EQ(seq[1], 7);
@@ -250,8 +266,8 @@ TEST(global_scheduler_suite, two_dep)
     ASSERT_EQ(seq[8], 5);
     ASSERT_EQ(seq[9], 9);
     ASSERT_EQ(seq[10], 10);
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), "102030");
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), "102030");
     ASSERT_FALSE(dep0_done_before_await);
     ASSERT_TRUE(dep0_done_after_await);
     ASSERT_FALSE(dep1_done_before_await);

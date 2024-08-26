@@ -7,6 +7,20 @@
 
 namespace coschedula {
 
+namespace tests {
+class global_scheduler_suite;
+class per_thread_scheduler_suite;
+class fs_suite;
+} // namespace tests
+
+namespace runners {
+struct impl;
+template<typename T, scheduler S>
+class concurrent_runner;
+} // namespace runners
+
+struct async_impl;
+
 /**
  * @brief The task class - holds coroutine handle and connects it to related scheduler `S`
  * Simple example:
@@ -32,8 +46,16 @@ namespace coschedula {
  * ```
  */
 template<typename T = void, scheduler S = default_scheduler>
-struct task
+class task
 {
+    friend tests::global_scheduler_suite;
+    friend tests::per_thread_scheduler_suite;
+    friend tests::fs_suite;
+    friend async_impl;
+    friend runners::impl;
+    template<typename, scheduler>
+    friend class runners::concurrent_runner;
+
     struct init_suspend
     {
         constexpr bool await_ready() const noexcept { return false; }
@@ -78,6 +100,7 @@ struct task
         std::optional<T> result = std::nullopt;
     };
 
+public:
     using promise_type
         = std::conditional_t<std::is_same_v<T, void>, void_promise_type, value_promise_type>;
 
@@ -122,6 +145,12 @@ struct task
         return awaiter{m_handle.promise()};
     }
 
+private:
+    /**
+     * @return true if task is completed
+     */
+    bool done() const { return m_handle.done(); }
+
     /**
      * @return result of task returned by **co_return** or std::nullopt if task not yet done
      */
@@ -130,12 +159,6 @@ struct task
     {
         return m_handle.done() ? m_handle.promise().result : std::nullopt;
     }
-
-    /**
-     * @return true if task is completed
-     */
-    bool done() const { return m_handle.done(); }
-
 private:
     std::coroutine_handle<promise_type> m_handle;
 };
@@ -167,5 +190,31 @@ private:
         void await_resume() const noexcept {}
     };
 };
+
+namespace concepts_impl {
+
+template<typename T, scheduler S>
+constexpr bool is_task_with_scheduler = false;
+
+template<typename T, scheduler S>
+constexpr bool is_task_with_scheduler<task<T, S>, S> = true;
+
+template<typename T, scheduler S>
+struct result_type
+{};
+
+template<typename T, scheduler S>
+struct result_type<task<T, S>, S>
+{
+    using type = T;
+};
+
+} // namespace concepts_impl
+
+template<typename T, typename S>
+concept task_with_scheduler = concepts_impl::is_task_with_scheduler<T, S>;
+
+template<typename T, scheduler S>
+using result_type = typename concepts_impl::result_type<T, S>::type;
 
 } // namespace coschedula

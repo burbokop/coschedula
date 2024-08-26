@@ -9,7 +9,23 @@
 
 namespace coschedula::tests {
 
-TEST(fs_suite, read_seq)
+class fs_suite : public ::testing::Test
+{
+protected:
+    template<typename T, typename S>
+    static std::optional<T> result(const task<T, S> &t)
+    {
+        return t.result();
+    }
+
+    template<typename T, typename S>
+    static bool done(const task<T, S> &t)
+    {
+        return t.done();
+    }
+};
+
+TEST_F(fs_suite, read_seq)
 {
     struct s : public default_task_registry
     {};
@@ -23,13 +39,13 @@ TEST(fs_suite, read_seq)
 
     const auto t = fs::read<std::string::value_type, execution::seq, global_scheduler<s>>(path);
 
-    ASSERT_FALSE(t.done());
+    ASSERT_FALSE(done(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), content);
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), content);
 }
 
-TEST(fs_suite, read_seq_async)
+TEST_F(fs_suite, read_seq_async)
 {
     struct s : public default_task_registry
     {};
@@ -44,13 +60,13 @@ TEST(fs_suite, read_seq_async)
     const auto t = fs::read<std::string::value_type, execution::seq_async, global_scheduler<s>>(
         path);
 
-    ASSERT_FALSE(t.done());
+    ASSERT_FALSE(done(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), content);
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), content);
 }
 
-TEST(fs_suite, read_par)
+TEST_F(fs_suite, read_par)
 {
     struct s : public default_task_registry
     {};
@@ -64,10 +80,10 @@ TEST(fs_suite, read_par)
 
     const auto t = fs::read<std::string::value_type, execution::par, global_scheduler<s>>(path);
 
-    ASSERT_FALSE(t.done());
+    ASSERT_FALSE(done(t));
     ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), content);
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), content);
 }
 
 } // namespace coschedula::tests

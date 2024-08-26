@@ -9,7 +9,23 @@ namespace coschedula::tests {
 
 using sch = per_thread_scheduler<default_task_registry>;
 
-TEST(per_thread_scheduler_suite, void_task)
+class per_thread_scheduler_suite : public ::testing::Test
+{
+protected:
+    template<typename T, typename S>
+    static std::optional<T> result(const task<T, S> &t)
+    {
+        return t.result();
+    }
+
+    template<typename T, typename S>
+    static bool done(const task<T, S> &t)
+    {
+        return t.done();
+    }
+};
+
+TEST_F(per_thread_scheduler_suite, void_task)
 {
     bool entered = false;
     const auto &&void_task_coro = [&entered]() -> task<void, sch> {
@@ -18,13 +34,13 @@ TEST(per_thread_scheduler_suite, void_task)
     };
     const auto t = void_task_coro();
     ASSERT_FALSE(entered);
-    ASSERT_FALSE(t.done());
+    ASSERT_FALSE(done(t));
     ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
     ASSERT_TRUE(entered);
-    ASSERT_TRUE(t.done());
+    ASSERT_TRUE(done(t));
 }
 
-TEST(per_thread_scheduler_suite, two_dep)
+TEST_F(per_thread_scheduler_suite, two_dep)
 {
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro0 = [&seq]() -> task<std::string, sch> {
@@ -59,21 +75,21 @@ TEST(per_thread_scheduler_suite, two_dep)
         seq.push_back(7);
         const auto d1 = dep_task_coro1();
         seq.push_back(8);
-        dep0_done_before_await = d0.done();
-        dep1_done_before_await = d1.done();
+        dep0_done_before_await = done(d0);
+        dep1_done_before_await = done(d1);
         const auto dep0_res = co_await d0;
         seq.push_back(9);
         const auto dep1_res = co_await d1;
         seq.push_back(10);
-        dep0_done_after_await = d0.done();
-        dep1_done_after_await = d1.done();
+        dep0_done_after_await = done(d0);
+        dep1_done_after_await = done(d1);
         co_return dep0_res + dep1_res + "30";
     };
 
     const auto t = task_coro();
     ASSERT_EQ(seq, std::vector<std::size_t>{});
-    ASSERT_FALSE(t.done());
-    ASSERT_FALSE(t.result());
+    ASSERT_FALSE(done(t));
+    ASSERT_FALSE(result(t));
     ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
     ASSERT_EQ(seq[0], 6);
     ASSERT_EQ(seq[1], 7);
@@ -86,15 +102,15 @@ TEST(per_thread_scheduler_suite, two_dep)
     ASSERT_EQ(seq[8], 5);
     ASSERT_EQ(seq[9], 9);
     ASSERT_EQ(seq[10], 10);
-    ASSERT_TRUE(t.done());
-    ASSERT_EQ(t.result(), "102030");
+    ASSERT_TRUE(done(t));
+    ASSERT_EQ(result(t), "102030");
     ASSERT_FALSE(dep0_done_before_await);
     ASSERT_TRUE(dep0_done_after_await);
     ASSERT_FALSE(dep1_done_before_await);
     ASSERT_TRUE(dep1_done_after_await);
 }
 
-TEST(per_thread_scheduler_suite, parallel)
+TEST_F(per_thread_scheduler_suite, parallel)
 {
     using std::chrono::operator""us;
 
