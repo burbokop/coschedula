@@ -5,6 +5,7 @@
 #include "scheduler.h"
 #include <map>
 #include <thread>
+#include <mutex>
 
 namespace coschedula {
 

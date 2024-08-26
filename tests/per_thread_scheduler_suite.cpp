@@ -3,6 +3,7 @@
 #include "../src/task.h"
 #include "../src/utils.h"
 #include <gtest/gtest.h>
+#include <array>
 
 namespace coschedula::tests {
 
