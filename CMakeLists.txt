@@ -44,8 +44,6 @@ endif()
 
 add_subdirectory(src)
 
-add_executable(unknown_project src/main.cpp src/test.h src/test.cpp)
-
 if(ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
