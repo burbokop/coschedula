@@ -13,7 +13,7 @@ namespace coschedula {
  * @param args - args passed to `f`
  * @return result of `f`
  */
-template<typename T, scheduler S = per_thread_scheduler<default_task_registry>, typename... Args>
+template<typename T, scheduler S = default_scheduler, typename... Args>
 task<T, S> async(auto &&f, Args &&...args)
     requires requires {
         {
@@ -31,7 +31,7 @@ task<T, S> async(auto &&f, Args &&...args)
 /**
  * @brief create thread and runs seperate scheduler in it and current coroutine awaits it
  */
-template<typename T = void, scheduler S = per_thread_scheduler<default_task_registry>, typename... Args>
+template<typename T = void, scheduler S = default_scheduler, typename... Args>
 task<T, S> async(auto &&f, Args &&...args)
     requires requires {
         {

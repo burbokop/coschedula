@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "scheduler.h"
+#include "default_scheduler.h"
 #include <thread>
 
 namespace coschedula {
 
-template<scheduler S>
+template<scheduler S = default_scheduler>
 bool proceed_until_empty()
 {
     bool any_done = false;

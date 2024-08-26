@@ -1,7 +1,5 @@
 #pragma once
 
-#include "default_task_registry.h"
-#include "per_thread_scheduler.h"
 #include "task.h"
 #include <future>
 
@@ -15,7 +13,7 @@ namespace coschedula::runners {
  * @brief async - run coroutine in new thread which is not compleated until all coroutines managed by scheduler `S` are done
  * @note not suggested to use with global_scheduler because it may cause thread to run coroutines from another threads
  */
-template<scheduler S = per_thread_scheduler<default_task_registry>>
+template<scheduler S = default_scheduler>
 std::thread thread(auto &&f)
     requires requires {
         {
@@ -35,7 +33,7 @@ std::thread thread(auto &&f)
  * @brief async - run coroutine in std::async which is not compleated until all coroutines managed by scheduler `S` are done
  * @note not suggested to use with global_scheduler because it may cause thread to run coroutines from another threads
  */
-template<typename T = void, scheduler S = per_thread_scheduler<default_task_registry>, typename... Args>
+template<typename T = void, scheduler S = default_scheduler, typename... Args>
 std::future<T> async(auto &&f, Args &&...args)
     requires requires {
         {
@@ -59,7 +57,7 @@ std::future<T> async(auto &&f, Args &&...args)
  * @brief block_on - run coroutine in current thread until all coroutines managed by scheduler `S` are done
  * @note not suggested to use with global_scheduler because it may cause thread to run coroutines from another threads
  */
-template<typename T = void, scheduler S = per_thread_scheduler<default_task_registry>, typename... Args>
+template<typename T = void, scheduler S = default_scheduler, typename... Args>
 T block_on(auto &&f, Args &&...args)
     requires requires {
         {

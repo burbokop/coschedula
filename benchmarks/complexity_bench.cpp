@@ -1,3 +1,5 @@
+// Copyright 2023 Borys Boiko
+
 #include "../src/global_scheduler.h"
 #include "../src/task.h"
 #include "../src/utils.h"

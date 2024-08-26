@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "default_task_registry.h"
-#include "per_thread_scheduler.h"
+#include "default_scheduler.h"
 #include <utility>
 
 namespace coschedula {
@@ -32,7 +31,7 @@ namespace coschedula {
  * }
  * ```
  */
-template<typename T = void, scheduler S = per_thread_scheduler<default_task_registry>>
+template<typename T = void, scheduler S = default_scheduler>
 struct task
 {
     struct init_suspend
