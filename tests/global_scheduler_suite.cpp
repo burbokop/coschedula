@@ -2,13 +2,13 @@
 
 #include "../src/global_scheduler.h"
 #include "../src/task.h"
+#include "../src/utils.h"
 #include <gtest/gtest.h>
-#include <list>
 #include <string>
 
 namespace coschedula::tests {
 
-TEST(task_suite, void_task)
+TEST(global_scheduler_suite, void_task)
 {
     struct s : public default_task_registry
     {};
@@ -21,12 +21,12 @@ TEST(task_suite, void_task)
     const auto t = void_task_coro();
     ASSERT_FALSE(entered);
     ASSERT_FALSE(t.done());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
     ASSERT_TRUE(t.done());
 }
 
-TEST(task_suite, int_value_task)
+TEST(global_scheduler_suite, int_value_task)
 {
     struct s : public default_task_registry
     {};
@@ -40,13 +40,13 @@ TEST(task_suite, int_value_task)
     ASSERT_FALSE(entered);
     ASSERT_FALSE(t.done());
     ASSERT_FALSE(t.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
     ASSERT_TRUE(t.done());
     ASSERT_EQ(t.result(), 10);
 }
 
-TEST(task_suite, string_value_task)
+TEST(global_scheduler_suite, string_value_task)
 {
     struct s : public default_task_registry
     {};
@@ -60,13 +60,13 @@ TEST(task_suite, string_value_task)
     ASSERT_FALSE(entered);
     ASSERT_FALSE(t.done());
     ASSERT_FALSE(t.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_TRUE(entered);
     ASSERT_TRUE(t.done());
     ASSERT_EQ(t.result(), "10");
 }
 
-TEST(task_suite, two_tasks)
+TEST(global_scheduler_suite, two_tasks)
 {
     struct s : public default_task_registry
     {};
@@ -88,7 +88,7 @@ TEST(task_suite, two_tasks)
     ASSERT_FALSE(t1.done());
     ASSERT_FALSE(t0.result());
     ASSERT_FALSE(t1.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 1);
     ASSERT_TRUE(t0.done());
@@ -99,7 +99,7 @@ TEST(task_suite, two_tasks)
     ASSERT_EQ(t1.result(), "20");
 }
 
-TEST(task_suite, suspend)
+TEST(global_scheduler_suite, suspend)
 {
     struct s : public default_task_registry
     {};
@@ -125,7 +125,7 @@ TEST(task_suite, suspend)
     ASSERT_FALSE(t1.done());
     ASSERT_FALSE(t0.result());
     ASSERT_FALSE(t1.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 2);
     ASSERT_EQ(seq[2], 1);
@@ -138,7 +138,7 @@ TEST(task_suite, suspend)
     ASSERT_EQ(t1.result(), "20");
 }
 
-TEST(task_suite, dep)
+TEST(global_scheduler_suite, dep)
 {
     struct s : public default_task_registry
     {};
@@ -172,7 +172,7 @@ TEST(task_suite, dep)
     ASSERT_EQ(seq, std::vector<std::size_t>{});
     ASSERT_FALSE(t.done());
     ASSERT_FALSE(t.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 3);
     ASSERT_EQ(seq[1], 4);
     ASSERT_EQ(seq[2], 0);
@@ -185,7 +185,7 @@ TEST(task_suite, dep)
     ASSERT_TRUE(dep_done_after_await);
 }
 
-TEST(task_suite, two_dep)
+TEST(global_scheduler_suite, two_dep)
 {
     struct s : public default_task_registry
     {};
@@ -238,7 +238,7 @@ TEST(task_suite, two_dep)
     ASSERT_EQ(seq, std::vector<std::size_t>{});
     ASSERT_FALSE(t.done());
     ASSERT_FALSE(t.result());
-    ASSERT_TRUE(coschedula::global_scheduler<s>::task_registry().proceed_until_empty());
+    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
     ASSERT_EQ(seq[0], 6);
     ASSERT_EQ(seq[1], 7);
     ASSERT_EQ(seq[2], 8);

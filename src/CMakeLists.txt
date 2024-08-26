@@ -28,4 +28,6 @@ target_sources(
          $<INSTALL_INTERFACE:${INSTALLDIR}/fs.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/runners.h>
          $<INSTALL_INTERFACE:${INSTALLDIR}/runners.h>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/utils.h>
+         $<INSTALL_INTERFACE:${INSTALLDIR}/utils.h>
   PRIVATE fs.cpp)

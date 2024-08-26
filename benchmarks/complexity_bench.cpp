@@ -1,5 +1,6 @@
 #include "../src/global_scheduler.h"
 #include "../src/task.h"
+#include "../src/utils.h"
 #include "random_gen.h"
 #include <benchmark/benchmark.h>
 
@@ -28,7 +29,7 @@ void num_of_tasks(benchmark::State &state)
             tasks.push_back(task_coro());
         }
 
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
     }
     state.SetComplexityN(state.range(0));
 }
@@ -55,7 +56,7 @@ void num_of_tasks_async(benchmark::State &state)
             tasks.push_back(task_coro());
         }
 
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
     }
     state.SetComplexityN(state.range(0));
 }

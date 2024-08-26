@@ -36,8 +36,10 @@ public:
 
     static bool proceed() { return registry(std::this_thread::get_id()).proceed(); }
 
+    static R &registry() { return registry(std::this_thread::get_id()); }
+
 private:
-    static task_registry &registry(std::thread::id id)
+    static R &registry(std::thread::id id)
     {
         std::lock_guard g(s_mutex);
         return s_registries[id];

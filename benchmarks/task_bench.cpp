@@ -3,6 +3,7 @@
 #include "../src/async.h"
 #include "../src/global_scheduler.h"
 #include "../src/task.h"
+#include "../src/utils.h"
 #include "random_gen.h"
 #include "word_iterator.h"
 #include <benchmark/benchmark.h>
@@ -100,7 +101,7 @@ void seq(benchmark::State &state)
     for (auto _ : state) {
         (void) _;
         const auto t = separate_words::seq<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t.result());
     }
 }
@@ -114,7 +115,7 @@ void seq_async(benchmark::State &state)
     for (auto _ : state) {
         (void) _;
         const auto t = separate_words::seq_async<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t.result());
     }
 }
@@ -128,7 +129,7 @@ void par(benchmark::State &state)
     for (auto _ : state) {
         (void) _;
         const auto t = separate_words::par<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t.result());
     }
 }
@@ -163,7 +164,7 @@ void two_tasks_seq(benchmark::State &state)
         (void) _;
         const auto t0 = separate_words::seq<global_scheduler<s>>(words);
         const auto t1 = separate_words::seq<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t0.result());
         benchmark::DoNotOptimize(t1.result());
     }
@@ -179,7 +180,7 @@ void two_tasks_seq_async(benchmark::State &state)
         (void) _;
         const auto t0 = separate_words::seq_async<global_scheduler<s>>(words);
         const auto t1 = separate_words::seq_async<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t0.result());
         benchmark::DoNotOptimize(t1.result());
     }
@@ -195,7 +196,7 @@ void two_tasks_par(benchmark::State &state)
         (void) _;
         const auto t0 = separate_words::par<global_scheduler<s>>(words);
         const auto t1 = separate_words::par<global_scheduler<s>>(words);
-        coschedula::global_scheduler<s>::task_registry().proceed_until_empty();
+        proceed_until_empty<global_scheduler<s>>();
         benchmark::DoNotOptimize(t0.result());
         benchmark::DoNotOptimize(t1.result());
     }

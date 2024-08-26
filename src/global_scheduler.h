@@ -41,10 +41,14 @@ public:
         return s_task_registry.proceed();
     }
 
-    static R &task_registry() { return s_task_registry; }
+    static auto use_registry(auto &&f)
+    {
+        std::lock_guard g(s_mutes);
+        return f(s_task_registry);
+    }
 
 private:
-    inline static std::mutex s_mutes;
+    inline static std::recursive_mutex s_mutes;
     inline static R s_task_registry;
 };
 
