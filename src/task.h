@@ -2,10 +2,24 @@
 
 #pragma once
 
-#include "scheduler.h"
+#include "default_scheduler.h"
 #include <utility>
 
 namespace coschedula {
+
+namespace tests {
+class global_scheduler_suite;
+class per_thread_scheduler_suite;
+class fs_suite;
+} // namespace tests
+
+namespace runners {
+struct impl;
+template<typename T, scheduler S>
+class concurrent_runner;
+} // namespace runners
+
+struct async_impl;
 
 /**
  * @brief The task class - holds coroutine handle and connects it to related scheduler `S`
@@ -31,9 +45,17 @@ namespace coschedula {
  * }
  * ```
  */
-template<typename T, std::derived_from<scheduler> S = scheduler>
-struct task
+template<typename T = void, scheduler S = default_scheduler>
+class task
 {
+    friend tests::global_scheduler_suite;
+    friend tests::per_thread_scheduler_suite;
+    friend tests::fs_suite;
+    friend async_impl;
+    friend runners::impl;
+    template<typename, scheduler>
+    friend class runners::concurrent_runner;
+
     struct init_suspend
     {
         constexpr bool await_ready() const noexcept { return false; }
@@ -41,7 +63,7 @@ struct task
         void await_suspend(std::coroutine_handle<P> h,
                            source_location loc = source_location::current()) const noexcept
         {
-            scheduler::instance<S>.add_initialy_suspended(h, loc);
+            S::add_initialy_suspended(h, loc);
         }
 
         void await_resume() const noexcept {}
@@ -78,8 +100,9 @@ struct task
         std::optional<T> result = std::nullopt;
     };
 
-    using promise_type =
-        typename std::conditional<std::is_same_v<T, void>, void_promise_type, value_promise_type>::type;
+public:
+    using promise_type
+        = std::conditional_t<std::is_same_v<T, void>, void_promise_type, value_promise_type>;
 
     task(promise_type &p)
         : m_handle(std::coroutine_handle<promise_type>::from_promise(p))
@@ -108,23 +131,25 @@ struct task
             constexpr bool await_ready() const noexcept { return false; }
             void await_suspend(std::coroutine_handle<> h) const noexcept
             {
-                auto &sch = scheduler::instance<S>;
-                if (auto i = sch.indexOf(h)) {
-                    const auto ok
-                        = sch.mark_suspended(*i,
-                                             std::coroutine_handle<promise_type>::from_promise(p));
-                    assert(ok);
-                }
+                S::await_suspend(h, std::coroutine_handle<promise_type>::from_promise(p));
             }
 
             T await_resume() const noexcept
             {
-                assert(p.result);
-                return *p.result;
+                if constexpr (!std::is_same_v<T, void>) {
+                    assert(p.result);
+                    return *p.result;
+                }
             }
         };
         return awaiter{m_handle.promise()};
     }
+
+private:
+    /**
+     * @return true if task is completed
+     */
+    bool done() const { return m_handle.done(); }
 
     /**
      * @return result of task returned by **co_return** or std::nullopt if task not yet done
@@ -134,14 +159,62 @@ struct task
     {
         return m_handle.done() ? m_handle.promise().result : std::nullopt;
     }
-
-    /**
-     * @return true if task is completed
-     */
-    bool done() const { return m_handle.done(); }
-
 private:
     std::coroutine_handle<promise_type> m_handle;
 };
+
+/**
+ * @brief The suspend class - suspends current coroutine and ask scheduler to give controls to another
+ * Example:
+ * ```
+ * co_await coschedula::suspend{};
+ * ```
+ */
+class suspend
+{
+public:
+    auto operator co_await() { return awaiter{}; }
+
+private:
+    struct awaiter
+    {
+        constexpr bool await_ready() const noexcept { return false; }
+
+        template<typename P>
+        void await_suspend(std::coroutine_handle<P> h) const noexcept
+            requires(scheduler<typename P::related_scheduler>)
+        {
+            P::related_scheduler::suspend(h);
+        }
+
+        void await_resume() const noexcept {}
+    };
+};
+
+namespace concepts_impl {
+
+template<typename T, scheduler S>
+constexpr bool is_task_with_scheduler = false;
+
+template<typename T, scheduler S>
+constexpr bool is_task_with_scheduler<task<T, S>, S> = true;
+
+template<typename T, scheduler S>
+struct result_type
+{};
+
+template<typename T, scheduler S>
+struct result_type<task<T, S>, S>
+{
+    using type = T;
+};
+
+} // namespace concepts_impl
+
+template<typename T, typename S>
+concept task_with_scheduler = concepts_impl::is_task_with_scheduler<T, S>;
+
+template<typename T, scheduler S>
+using result_type = typename concepts_impl::result_type<T, S>::type;
 
 } // namespace coschedula
