@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1724871074109,
+  "lastUpdate": 1724871419119,
   "repoUrl": "https://github.com/burbokop/coschedula",
   "entries": {
     "Benchmark": [
@@ -7038,6 +7038,194 @@ window.BENCHMARK_DATA = {
             "value": 202874004.5000035,
             "unit": "ns/iter",
             "extra": "iterations: 4\ncpu: 202864872.49999928 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async_BigO",
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async_RMS",
+            "unit": "undefined/iter",
+            "extra": "iterations: undefined\ncpu: undefined undefined\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "burbokop@gmail.com",
+            "name": "Borys Boiko",
+            "username": "burbokop"
+          },
+          "committer": {
+            "email": "burbokop@gmail.com",
+            "name": "Borys Boiko",
+            "username": "burbokop"
+          },
+          "distinct": true,
+          "id": "8eb6aeaad674fb1c3c756e95fc994e7a6c93f333",
+          "message": "Add fs::write function and improve fs error handling\n\nTask: #13",
+          "timestamp": "2024-08-28T20:54:52+02:00",
+          "tree_id": "d49499d09eb070d89f197f16d86e8f6225d53c16",
+          "url": "https://github.com/burbokop/coschedula/commit/8eb6aeaad674fb1c3c756e95fc994e7a6c93f333"
+        },
+        "date": 1724871418830,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "coschedula::benchmarks::task::without_coroutines",
+            "value": 8736347.358024677,
+            "unit": "ns/iter",
+            "extra": "iterations: 81\ncpu: 8736225.851851853 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::without_coroutines_manual_loop",
+            "value": 8251130.941860452,
+            "unit": "ns/iter",
+            "extra": "iterations: 86\ncpu: 8250806.081395348 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::seq",
+            "value": 11009023.437500432,
+            "unit": "ns/iter",
+            "extra": "iterations: 64\ncpu: 11008527.062499996 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::seq_async",
+            "value": 10526810.030303191,
+            "unit": "ns/iter",
+            "extra": "iterations: 66\ncpu: 10526465.712121213 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::par",
+            "value": 6066154.863247886,
+            "unit": "ns/iter",
+            "extra": "iterations: 117\ncpu: 6055205.811965811 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::two_tasks_without_coroutines",
+            "value": 17326755.374999437,
+            "unit": "ns/iter",
+            "extra": "iterations: 40\ncpu: 17326518.525 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::two_tasks_without_coroutines_manual_loop",
+            "value": 16348268.999999097,
+            "unit": "ns/iter",
+            "extra": "iterations: 42\ncpu: 16347802.452380951 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::two_tasks_seq",
+            "value": 19237480.5135141,
+            "unit": "ns/iter",
+            "extra": "iterations: 37\ncpu: 19236137.216216203 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::two_tasks_seq_async",
+            "value": 13656392.71999953,
+            "unit": "ns/iter",
+            "extra": "iterations: 50\ncpu: 13655370.539999988 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::task::two_tasks_par",
+            "value": 9966600.742857119,
+            "unit": "ns/iter",
+            "extra": "iterations: 70\ncpu: 9932347.27142858 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/16",
+            "value": 19027.396813207815,
+            "unit": "ns/iter",
+            "extra": "iterations: 36463\ncpu: 19026.95093656587 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/32",
+            "value": 38161.9336158188,
+            "unit": "ns/iter",
+            "extra": "iterations: 18408\ncpu: 38160.93948283349 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/64",
+            "value": 77914.50082499177,
+            "unit": "ns/iter",
+            "extra": "iterations: 9091\ncpu: 77912.90914090861 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/128",
+            "value": 155434.44165536875,
+            "unit": "ns/iter",
+            "extra": "iterations: 4422\ncpu: 155432.48914518306 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/256",
+            "value": 330476.51158392965,
+            "unit": "ns/iter",
+            "extra": "iterations: 2115\ncpu: 330472.261938534 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/512",
+            "value": 694955.8093812376,
+            "unit": "ns/iter",
+            "extra": "iterations: 1002\ncpu: 694928.8293413172 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks/1024",
+            "value": 1575373.8428246812,
+            "unit": "ns/iter",
+            "extra": "iterations: 439\ncpu: 1575317.40091116 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_BigO",
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_RMS",
+            "unit": "undefined/iter",
+            "extra": "iterations: undefined\ncpu: undefined undefined\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/16",
+            "value": 2500549.3144876244,
+            "unit": "ns/iter",
+            "extra": "iterations: 283\ncpu: 2500438.321554768 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/32",
+            "value": 4960184.453900541,
+            "unit": "ns/iter",
+            "extra": "iterations: 141\ncpu: 4960083.000000005 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/64",
+            "value": 10047881.73134299,
+            "unit": "ns/iter",
+            "extra": "iterations: 67\ncpu: 10047364.089552224 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/128",
+            "value": 20389422.029411968,
+            "unit": "ns/iter",
+            "extra": "iterations: 34\ncpu: 20388372.29411762 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/256",
+            "value": 42140740.470586024,
+            "unit": "ns/iter",
+            "extra": "iterations: 17\ncpu: 42139416.99999988 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/512",
+            "value": 91274156.99999376,
+            "unit": "ns/iter",
+            "extra": "iterations: 8\ncpu: 91269099.87499987 ns\nthreads: 1"
+          },
+          {
+            "name": "coschedula::benchmarks::complexity::num_of_tasks_async/1024",
+            "value": 205577924.0000106,
+            "unit": "ns/iter",
+            "extra": "iterations: 3\ncpu: 205569637.00000116 ns\nthreads: 1"
           },
           {
             "name": "coschedula::benchmarks::complexity::num_of_tasks_async_BigO",
