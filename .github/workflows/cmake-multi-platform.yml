@@ -113,7 +113,7 @@ jobs:
         echo "benchmarks-enabled=true" >> "$GITHUB_OUTPUT"
 
     - name: Store benchmark result
-      if: steps.check-benchmarks.outputs.files_exists == 'true' && matrix.build_type == 'Release'
+      if: steps.check-benchmarks.outputs.files_exists == 'true' && matrix.build_type == 'Release' && matrix.c_compiler == 'clang' && github.ref == 'refs/heads/master'
       uses: benchmark-action/github-action-benchmark@v1
       with:
         tool: 'googlecpp'
