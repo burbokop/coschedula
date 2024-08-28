@@ -32,6 +32,7 @@ struct async_impl
         auto future = std::async(
             std::launch::async,
             [f = std::move(f)](Args &&...args) -> T {
+                runner_guard<S> g;
                 auto task = f(std::forward<Args>(args)...);
                 while (S::proceed()) {
                     std::this_thread::yield();

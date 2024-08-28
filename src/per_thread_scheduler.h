@@ -4,8 +4,9 @@
 
 #include "scheduler.h"
 #include <map>
-#include <thread>
 #include <mutex>
+#include <stack>
+#include <thread>
 
 namespace coschedula {
 
@@ -19,6 +20,18 @@ class per_thread_scheduler
 {
 public:
     per_thread_scheduler() = delete;
+
+    static void push_runner()
+    {
+        std::lock_guard g(s_mutex);
+        s_registries[std::this_thread::get_id()].emplace();
+    }
+
+    static void pop_runner()
+    {
+        std::lock_guard g(s_mutex);
+        s_registries[std::this_thread::get_id()].pop();
+    }
 
     static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
     {
@@ -43,12 +56,14 @@ private:
     static R &registry(std::thread::id id)
     {
         std::lock_guard g(s_mutex);
-        return s_registries[id];
+        auto &stack = s_registries[id];
+        assert(!stack.empty());
+        return stack.top();
     }
 
 private:
-    inline static std::mutex s_mutex;
-    inline static std::map<std::thread::id, R> s_registries;
+    inline static std::recursive_mutex s_mutex;
+    inline static std::map<std::thread::id, std::stack<R>> s_registries;
 };
 
 } // namespace coschedula

@@ -4,6 +4,7 @@
 
 #include "source_location.h"
 #include <coroutine>
+#include <utility>
 
 namespace coschedula {
 
@@ -15,18 +16,36 @@ template<typename T>
 concept scheduler = requires(std::coroutine_handle<> handle,
                              std::coroutine_handle<> dep,
                              source_location loc) {
+    { T::push_runner() } -> std::same_as<void>;
+    { T::pop_runner() } -> std::same_as<void>;
+    { T::add_initialy_suspended(handle, loc) } noexcept -> std::same_as<void>;
+    { T::suspend(handle) } noexcept -> std::same_as<void>;
+    { T::await_suspend(handle, dep) } noexcept -> std::same_as<void>;
+    { T::proceed() } -> std::same_as<bool>;
+};
+
+template<scheduler S>
+class runner_guard
+{
+public:
+    runner_guard(const runner_guard &) = delete;
+    runner_guard &operator=(const runner_guard &) = delete;
+    runner_guard &operator=(runner_guard &&) = delete;
+
+    runner_guard(runner_guard &&v)
+        : m_moved(std::exchange(v.m_moved, true))
+    {}
+
+    runner_guard() { S::push_runner(); }
+    ~runner_guard()
     {
-        T::add_initialy_suspended(handle, loc)
-    } noexcept -> std::same_as<void>;
-    {
-        T::suspend(handle)
-    } noexcept -> std::same_as<void>;
-    {
-        T::await_suspend(handle, dep)
-    } noexcept -> std::same_as<void>;
-    {
-        T::proceed()
-    } -> std::same_as<bool>;
+        if (!m_moved) {
+            S::pop_runner();
+        }
+    }
+
+private:
+    bool m_moved = false;
 };
 
 /**

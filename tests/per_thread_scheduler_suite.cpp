@@ -27,6 +27,7 @@ protected:
 
 TEST_F(per_thread_scheduler_suite, void_task)
 {
+    runner_guard<sch> g;
     bool entered = false;
     const auto &&void_task_coro = [&entered]() -> task<void, sch> {
         entered = true;
@@ -42,6 +43,8 @@ TEST_F(per_thread_scheduler_suite, void_task)
 
 TEST_F(per_thread_scheduler_suite, two_dep)
 {
+    runner_guard<sch> g;
+
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro0 = [&seq]() -> task<std::string, sch> {
         seq.push_back(0);
@@ -113,6 +116,7 @@ TEST_F(per_thread_scheduler_suite, two_dep)
 TEST_F(per_thread_scheduler_suite, parallel)
 {
     using std::chrono::operator""us;
+    runner_guard<sch> g;
 
     struct ctx
     {
@@ -124,6 +128,7 @@ TEST_F(per_thread_scheduler_suite, parallel)
     std::array<ctx, 2> ctxs;
 
     auto t0 = std::thread{[&ctxs] {
+        runner_guard<sch> g;
         const auto &&t = [&ctxs]() -> task<void, sch> {
             ctxs[0].entered = true;
             for (std::size_t i = 0; i < 100; ++i) {
@@ -138,6 +143,7 @@ TEST_F(per_thread_scheduler_suite, parallel)
     }};
 
     auto t1 = std::thread{[&ctxs] {
+        runner_guard<sch> g;
         const auto &&t = [&ctxs]() -> task<void, sch> {
             ctxs[1].entered = true;
             for (std::size_t i = 0; i < 100; ++i) {

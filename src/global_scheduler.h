@@ -3,7 +3,9 @@
 #pragma once
 
 #include "scheduler.h"
+#include <cassert>
 #include <mutex>
+#include <optional>
 
 namespace coschedula {
 
@@ -17,39 +19,58 @@ template<std::derived_from<task_registry> R>
 class global_scheduler
 {
 public:
+    global_scheduler() = delete;
+
+    static void push_runner()
+    {
+        assert(!s_task_registry);
+        s_task_registry.emplace();
+    }
+
+    static void pop_runner()
+    {
+        assert(s_task_registry);
+        s_task_registry.reset();
+    }
+
     static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
     {
         std::lock_guard g(s_mutes);
-        s_task_registry.add_initialy_suspended(h, loc);
+        assert(s_task_registry);
+        s_task_registry->add_initialy_suspended(h, loc);
     }
 
     static void suspend(std::coroutine_handle<> h) noexcept
     {
         std::lock_guard g(s_mutes);
-        s_task_registry.suspend(h);
+        assert(s_task_registry);
+        s_task_registry->suspend(h);
     }
 
     static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
     {
         std::lock_guard g(s_mutes);
-        s_task_registry.await_suspend(current, dep);
+        assert(s_task_registry);
+        s_task_registry->await_suspend(current, dep);
     }
 
     static bool proceed()
     {
         std::lock_guard g(s_mutes);
-        return s_task_registry.proceed();
+        assert(s_task_registry);
+        return s_task_registry->proceed();
     }
 
     static auto use_registry(auto &&f)
     {
         std::lock_guard g(s_mutes);
-        return f(s_task_registry);
+        assert(s_task_registry);
+        return f(*s_task_registry);
     }
 
 private:
     inline static std::recursive_mutex s_mutes;
-    inline static R s_task_registry;
+    inline static std::optional<R> s_task_registry;
 };
 
 } // namespace coschedula

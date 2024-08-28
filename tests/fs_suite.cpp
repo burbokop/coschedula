@@ -29,6 +29,7 @@ TEST_F(fs_suite, read_seq)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     const auto path = "fs_suite_read_seq_test_data.txt";
     const auto content = "some_content";
@@ -49,6 +50,7 @@ TEST_F(fs_suite, read_seq_async)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     const auto path = "fs_suite_read_seq_async_test_data.txt";
     const auto content = "some_content";
@@ -70,6 +72,7 @@ TEST_F(fs_suite, read_par)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     const auto path = "fs_suite_read_par_test_data.txt";
     const auto content = "some_content";

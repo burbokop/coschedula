@@ -19,6 +19,7 @@ struct impl
         }
     {
         return std::thread([f = std::move(f)] {
+            runner_guard<S> g;
             auto task = f();
             while (S::proceed()) {
                 std::this_thread::yield();
@@ -35,11 +36,15 @@ struct impl
         return std::async(
             std::launch::async,
             [f = std::move(f)](Args &&...args) {
+                runner_guard<S> g;
                 auto task = f(std::forward<Args>(args)...);
                 while (S::proceed()) {
                     std::this_thread::yield();
                 }
-                return task.result().value();
+                if constexpr (!std::is_same_v<T, void>) {
+                    auto result = task.result().value();
+                    return result;
+                }
             },
             std::forward<Args>(args)...);
     }
@@ -50,12 +55,14 @@ struct impl
             { f(std::forward<Args>(args)...) } -> std::same_as<task<T, S>>;
         }
     {
+        runner_guard<S> g;
         auto task = f(std::forward<Args>(args)...);
         while (S::proceed()) {
             std::this_thread::yield();
         }
         if constexpr (!std::is_same_v<T, void>) {
-            return task.result().value();
+            auto result = task.result().value();
+            return result;
         }
     }
 };
@@ -113,8 +120,9 @@ public:
     concurrent_runner(concurrent_runner &&) = default;
     concurrent_runner &operator=(concurrent_runner &&) = default;
 
-    concurrent_runner(task<T, S> &&task)
-        : m_task(std::move(task))
+    concurrent_runner(runner_guard<S> &&g, task<T, S> &&task)
+        : m_g(std::move(g))
+        , m_task(std::move(task))
     {}
 
     bool proceed() { return S::proceed(); }
@@ -127,6 +135,7 @@ public:
     }
 
 private:
+    runner_guard<S> m_g;
     task<T, S> m_task;
 };
 
@@ -141,7 +150,8 @@ auto concurrent(F &&f, Args &&...args)
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
-    return f(std::forward<Args>(args)...);
+    runner_guard<S> g;
+    return concurrent_runner(std::move(g), f(std::forward<Args>(args)...));
 }
 
 } // namespace coschedula::runners

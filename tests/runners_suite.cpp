@@ -53,6 +53,24 @@ TEST(runners_suite, block_on_void)
     });
 }
 
+TEST(runners_suite, block_on_inside_block_on)
+{
+    runners::block_on([]() -> task<> {
+        co_await suspend{};
+        runners::block_on([]() -> task<> {
+            co_await suspend{};
+            runners::block_on([]() -> task<> {
+                co_await suspend{};
+                co_return;
+            });
+            co_await suspend{};
+            co_return;
+        });
+        co_await suspend{};
+        co_return;
+    });
+}
+
 TEST(runners_suite, concurrent)
 {
     auto runner = runners::concurrent([]() -> task<std::string> {

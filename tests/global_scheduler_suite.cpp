@@ -28,6 +28,7 @@ TEST_F(global_scheduler_suite, void_task)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     bool entered = false;
     const auto &&void_task_coro = [&entered]() -> task<void, global_scheduler<s>> {
@@ -46,6 +47,7 @@ TEST_F(global_scheduler_suite, int_value_task)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     bool entered = false;
     const auto &&value_task_coro = [&entered]() -> task<int, global_scheduler<s>> {
@@ -66,6 +68,7 @@ TEST_F(global_scheduler_suite, string_value_task)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     bool entered = false;
     const auto &&value_task_coro = [&entered]() -> task<std::string, global_scheduler<s>> {
@@ -86,6 +89,7 @@ TEST_F(global_scheduler_suite, two_tasks)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     std::vector<std::size_t> seq;
     const auto &&task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -119,6 +123,7 @@ TEST_F(global_scheduler_suite, suspend)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     std::vector<std::size_t> seq;
     const auto &&task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -158,6 +163,7 @@ TEST_F(global_scheduler_suite, dep)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -205,6 +211,7 @@ TEST_F(global_scheduler_suite, two_dep)
 {
     struct s : public default_task_registry
     {};
+    runner_guard<global_scheduler<s>> g;
 
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
