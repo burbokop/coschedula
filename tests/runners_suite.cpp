@@ -18,6 +18,19 @@ TEST(runners_suite, thread)
     }).join();
 }
 
+TEST(runners_suite, thread_recursive)
+{
+    runners::thread([]() -> task<void> {
+        co_await suspend{};
+        runners::thread([]() -> task<void> {
+            co_await suspend{};
+            co_await suspend{};
+            co_await suspend{};
+        }).join();
+        co_await suspend{};
+    }).join();
+}
+
 TEST(runners_suite, async)
 {
     auto f = runners::async([]() -> task<std::string> {
@@ -25,6 +38,25 @@ TEST(runners_suite, async)
         co_await suspend{};
         co_await suspend{};
         co_return "ssss";
+    });
+
+    f.wait();
+    ASSERT_EQ(f.get(), "ssss");
+}
+
+TEST(runners_suite, async_recursive)
+{
+    auto f = runners::async([]() -> task<std::string> {
+        co_await suspend{};
+        auto f = runners::async([]() -> task<std::string> {
+            co_await suspend{};
+            co_await suspend{};
+            co_await suspend{};
+            co_return "ssss";
+        });
+        co_await suspend{};
+        f.wait();
+        co_return f.get();
     });
 
     f.wait();
@@ -78,6 +110,30 @@ TEST(runners_suite, concurrent)
         co_await suspend{};
         co_await suspend{};
         co_return "ssss";
+    });
+
+    runner.proceed();
+
+    ASSERT_EQ(std::move(runner).wait(), "ssss");
+}
+
+TEST(runners_suite, concurrent_recursive)
+{
+    auto runner = runners::concurrent([]() -> task<std::string> {
+        co_await suspend{};
+        auto runner = runners::concurrent([]() -> task<std::string> {
+            co_await suspend{};
+            co_await suspend{};
+            co_await suspend{};
+            co_return "ssss";
+        });
+        runner.proceed();
+
+        co_await suspend{};
+        auto r = std::move(runner).wait();
+        co_await suspend{};
+
+        co_return r;
     });
 
     runner.proceed();

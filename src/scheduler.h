@@ -44,6 +44,8 @@ public:
         }
     }
 
+    bool moved() const { return m_moved; }
+
 private:
     bool m_moved = false;
 };

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "scheduler.h"
+#include <iostream>
 #include <map>
 #include <mutex>
 #include <stack>
@@ -25,30 +26,44 @@ public:
     {
         std::lock_guard g(s_mutex);
         s_registries[std::this_thread::get_id()].emplace();
+        std::cout << "push_runner: " << s_registries[std::this_thread::get_id()].size()
+                  << std::endl;
     }
 
     static void pop_runner()
     {
         std::lock_guard g(s_mutex);
+        std::cout << "pop_runner: " << s_registries[std::this_thread::get_id()].size() << std::endl;
         s_registries[std::this_thread::get_id()].pop();
     }
 
     static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
     {
+        std::cout << "add_initialy_suspended: " << s_registries[std::this_thread::get_id()].size()
+                  << std::endl;
         registry(std::this_thread::get_id()).add_initialy_suspended(h, loc);
     }
 
     static void suspend(std::coroutine_handle<> h) noexcept
     {
+        std::cout << "suspend: " << s_registries[std::this_thread::get_id()].size() << std::endl;
         registry(std::this_thread::get_id()).suspend(h);
     }
 
     static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
     {
+        std::cout << "await_suspend: " << s_registries[std::this_thread::get_id()].size()
+                  << std::endl;
         registry(std::this_thread::get_id()).await_suspend(current, dep);
     }
 
-    static bool proceed() { return registry(std::this_thread::get_id()).proceed(); }
+    static std::size_t stack_pos() { return s_registries[std::this_thread::get_id()].size(); }
+
+    static bool proceed()
+    {
+        std::cout << "proceed: " << s_registries[std::this_thread::get_id()].size() << std::endl;
+        return registry(std::this_thread::get_id()).proceed();
+    }
 
     static R &registry() { return registry(std::this_thread::get_id()); }
 

@@ -125,13 +125,24 @@ public:
         , m_task(std::move(task))
     {}
 
-    bool proceed() { return S::proceed(); }
+    bool proceed()
+    {
+        assert(!m_g.moved());
+        return S::proceed();
+    }
+
     T wait() &&
     {
+        assert(!m_g.moved());
+        std::cout << "wait_0: " << S::stack_pos() << " " << this << std::endl;
         while (S::proceed()) {
             std::this_thread::yield();
         }
-        return m_task.result().value();
+        std::cout << "wait_1: " << S::stack_pos() << " " << this << std::endl;
+
+        const auto result = m_task.result().value();
+        auto g = std::move(m_g);
+        return result;
     }
 
 private:
