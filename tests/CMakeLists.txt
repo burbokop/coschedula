@@ -18,7 +18,8 @@ enable_testing()
 add_executable(${PROJECT_NAME} global_scheduler_suite.cpp fs_suite.cpp
                                per_thread_scheduler_suite.cpp
                                runners_suite.cpp
-                               async_suite.cpp)
+                               async_suite.cpp
+                               utils.h)
 
 include(3rdparty_googletest.cmake)
 

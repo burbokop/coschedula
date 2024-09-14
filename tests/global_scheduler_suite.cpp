@@ -2,7 +2,7 @@
 
 #include "../src/global_scheduler.h"
 #include "../src/task.h"
-#include "../src/utils.h"
+#include "utils.h"
 #include <gtest/gtest.h>
 #include <string>
 
@@ -27,8 +27,17 @@ protected:
 TEST_F(global_scheduler_suite, void_task)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     bool entered = false;
     const auto &&void_task_coro = [&entered]() -> task<void, global_scheduler<s>> {
@@ -38,7 +47,7 @@ TEST_F(global_scheduler_suite, void_task)
     const auto t = void_task_coro();
     ASSERT_FALSE(entered);
     ASSERT_FALSE(done(t));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_TRUE(entered);
     ASSERT_TRUE(done(t));
 }
@@ -46,8 +55,17 @@ TEST_F(global_scheduler_suite, void_task)
 TEST_F(global_scheduler_suite, int_value_task)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     bool entered = false;
     const auto &&value_task_coro = [&entered]() -> task<int, global_scheduler<s>> {
@@ -58,7 +76,7 @@ TEST_F(global_scheduler_suite, int_value_task)
     ASSERT_FALSE(entered);
     ASSERT_FALSE(done(t));
     ASSERT_FALSE(result(t));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_TRUE(entered);
     ASSERT_TRUE(done(t));
     ASSERT_EQ(result(t), 10);
@@ -67,8 +85,17 @@ TEST_F(global_scheduler_suite, int_value_task)
 TEST_F(global_scheduler_suite, string_value_task)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     bool entered = false;
     const auto &&value_task_coro = [&entered]() -> task<std::string, global_scheduler<s>> {
@@ -79,7 +106,7 @@ TEST_F(global_scheduler_suite, string_value_task)
     ASSERT_FALSE(entered);
     ASSERT_FALSE(done(t));
     ASSERT_FALSE(result(t));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_TRUE(entered);
     ASSERT_TRUE(done(t));
     ASSERT_EQ(result(t), "10");
@@ -88,8 +115,17 @@ TEST_F(global_scheduler_suite, string_value_task)
 TEST_F(global_scheduler_suite, two_tasks)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     std::vector<std::size_t> seq;
     const auto &&task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -108,7 +144,7 @@ TEST_F(global_scheduler_suite, two_tasks)
     ASSERT_FALSE(done(t1));
     ASSERT_FALSE(result(t0));
     ASSERT_FALSE(result(t1));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 1);
     ASSERT_TRUE(done(t0));
@@ -122,8 +158,17 @@ TEST_F(global_scheduler_suite, two_tasks)
 TEST_F(global_scheduler_suite, suspend)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     std::vector<std::size_t> seq;
     const auto &&task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -146,7 +191,7 @@ TEST_F(global_scheduler_suite, suspend)
     ASSERT_FALSE(done(t1));
     ASSERT_FALSE(result(t0));
     ASSERT_FALSE(result(t1));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_EQ(seq[0], 0);
     ASSERT_EQ(seq[1], 2);
     ASSERT_EQ(seq[2], 1);
@@ -162,8 +207,17 @@ TEST_F(global_scheduler_suite, suspend)
 TEST_F(global_scheduler_suite, dep)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -194,7 +248,7 @@ TEST_F(global_scheduler_suite, dep)
     ASSERT_EQ(seq, std::vector<std::size_t>{});
     ASSERT_FALSE(done(t));
     ASSERT_FALSE(result(t));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_EQ(seq[0], 3);
     ASSERT_EQ(seq[1], 4);
     ASSERT_EQ(seq[2], 0);
@@ -210,8 +264,19 @@ TEST_F(global_scheduler_suite, dep)
 TEST_F(global_scheduler_suite, two_dep)
 {
     struct s : public default_task_registry
-    {};
-    runner_guard<global_scheduler<s>> g;
+    {
+        s(function<void(shared<s> &&)> &&about_to_resume)
+            : default_task_registry([](shared<default_task_registry> &&r) {
+                global_scheduler<s>::about_to_resume(
+                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
+            })
+        {}
+    };
+
+    const auto registry = std::make_shared<s>(function<void(shared<s> &&)>(
+        [](shared<s> &&r) { global_scheduler<s>::about_to_resume(std::move(r)); }));
+
+    runner_guard<global_scheduler<s>, s> g(registry);
 
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro0 = [&seq]() -> task<std::string, global_scheduler<s>> {
@@ -261,7 +326,7 @@ TEST_F(global_scheduler_suite, two_dep)
     ASSERT_EQ(seq, std::vector<std::size_t>{});
     ASSERT_FALSE(done(t));
     ASSERT_FALSE(result(t));
-    ASSERT_TRUE(proceed_until_empty<global_scheduler<s>>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_EQ(seq[0], 6);
     ASSERT_EQ(seq[1], 7);
     ASSERT_EQ(seq[2], 8);

@@ -23,7 +23,7 @@ struct async_impl
         co_return future.get();
     }
 
-    template<typename T = void, scheduler S, typename... Args>
+    template<typename T = void, scheduler S, std::derived_from<task_registry> R, typename... Args>
     static task<T, S> async(auto &&f, Args &&...args)
         requires requires {
             { f(std::forward<Args>(args)...) } -> std::same_as<task<T, S>>;
@@ -32,9 +32,11 @@ struct async_impl
         auto future = std::async(
             std::launch::async,
             [f = std::move(f)](Args &&...args) -> T {
-                runner_guard<S> g;
+                shared<R> r = std::make_shared<R>(function<void(shared<R> &&)>(
+                    [](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+                runner_guard<S, R> g(r);
                 auto task = f(std::forward<Args>(args)...);
-                while (S::proceed()) {
+                while (r->proceed()) {
                     std::this_thread::yield();
                 }
                 if constexpr (!std::is_same_v<T, void>) {
@@ -72,7 +74,10 @@ auto async(F &&f, Args &&...args) -> task<decltype(f(std::forward<Args>(args)...
 /**
  * @brief create thread and runs seperate scheduler in it and current coroutine awaits it
  */
-template<scheduler S = default_scheduler, typename F, typename... Args>
+template<scheduler S = default_scheduler,
+         std::derived_from<task_registry> R = default_task_registry,
+         typename F,
+         typename... Args>
 auto async(F &&f,
            Args &&...args) -> task<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>
     requires requires {
@@ -81,7 +86,7 @@ auto async(F &&f,
         } -> std::same_as<task<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>>;
     }
 {
-    return async_impl::async<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
+    return async_impl::async<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, R, Args...>(
         std::move(f), std::forward<Args>(args)...);
 }
 

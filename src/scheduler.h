@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "nonull.h"
 #include "source_location.h"
+#include "utils.h"
 #include <coroutine>
 #include <utility>
 
@@ -16,38 +18,14 @@ template<typename T>
 concept scheduler = requires(std::coroutine_handle<> handle,
                              std::coroutine_handle<> dep,
                              source_location loc) {
-    { T::push_runner() } -> std::same_as<void>;
+    // { T::push_runner() } -> std::same_as<void>;
     { T::pop_runner() } -> std::same_as<void>;
+    // { T::about_to_resume() } -> std::same_as<void>;
+
     { T::add_initialy_suspended(handle, loc) } noexcept -> std::same_as<void>;
     { T::suspend(handle) } noexcept -> std::same_as<void>;
     { T::await_suspend(handle, dep) } noexcept -> std::same_as<void>;
-    { T::proceed() } -> std::same_as<bool>;
-};
-
-template<scheduler S>
-class runner_guard
-{
-public:
-    runner_guard(const runner_guard &) = delete;
-    runner_guard &operator=(const runner_guard &) = delete;
-    runner_guard &operator=(runner_guard &&) = delete;
-
-    runner_guard(runner_guard &&v)
-        : m_moved(std::exchange(v.m_moved, true))
-    {}
-
-    runner_guard() { S::push_runner(); }
-    ~runner_guard()
-    {
-        if (!m_moved) {
-            S::pop_runner();
-        }
-    }
-
-    bool moved() const { return m_moved; }
-
-private:
-    bool m_moved = false;
+    // { T::proceed() } -> std::same_as<bool>;
 };
 
 /**
@@ -69,6 +47,34 @@ public:
         = 0;
 
     virtual bool proceed() noexcept = 0;
+};
+
+template<scheduler S, std::derived_from<task_registry> R>
+class runner_guard
+{
+public:
+    runner_guard(const runner_guard &) = delete;
+    runner_guard &operator=(const runner_guard &) = delete;
+    runner_guard &operator=(runner_guard &&) = delete;
+
+    runner_guard(shared<R> &&registry) { S::push_runner(std::move(registry)); }
+    runner_guard(const shared<R> &registry) { S::push_runner(copy(registry)); }
+
+    runner_guard(runner_guard &&v)
+        : m_moved(std::exchange(v.m_moved, true))
+    {}
+
+    ~runner_guard()
+    {
+        if (!m_moved) {
+            S::pop_runner();
+        }
+    }
+
+    bool moved() const { return m_moved; }
+
+private:
+    bool m_moved = false;
 };
 
 } // namespace coschedula

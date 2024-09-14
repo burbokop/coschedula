@@ -34,4 +34,6 @@ target_sources(
          $<INSTALL_INTERFACE:${INSTALLDIR}/utils.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/expected.h>
          $<INSTALL_INTERFACE:${INSTALLDIR}/expected.h>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/nonull.h>
+         $<INSTALL_INTERFACE:${INSTALLDIR}/nonull.h>
   PRIVATE fs.cpp)

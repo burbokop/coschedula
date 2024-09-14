@@ -15,7 +15,7 @@ class fs_suite;
 
 namespace runners {
 struct impl;
-template<typename T, scheduler S>
+template<typename T, scheduler S, std::derived_from<task_registry> R>
 class concurrent_runner;
 } // namespace runners
 
@@ -53,7 +53,7 @@ class task
     friend tests::fs_suite;
     friend async_impl;
     friend runners::impl;
-    template<typename, scheduler>
+    template<typename, scheduler, std::derived_from<task_registry>>
     friend class runners::concurrent_runner;
 
     struct init_suspend

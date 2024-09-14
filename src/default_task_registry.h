@@ -5,6 +5,7 @@
 #include "scheduler.h"
 #include <cassert>
 #include <functional>
+#include <iostream>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -19,19 +20,18 @@ concept stream_printer = requires(T v, std::ostream &s) { v(s); };
  * @brief The default_task_registry class - holds tasks info and manages it by round robin algorithm
  * @note default_task_registry::next can be overrided to use another algorithm of choosing next task to resume
  */
-class default_task_registry : public task_registry
+class default_task_registry : public task_registry,
+                              public std::enable_shared_from_this<default_task_registry>
 {
 public:
-    default_task_registry() = default;
+    default_task_registry(function<void(shared<default_task_registry> &&)> &&about_to_resume)
+        : m_about_to_resume(std::move(about_to_resume))
+    {}
+
     default_task_registry(const default_task_registry &) = delete;
     default_task_registry(default_task_registry &&) = delete;
 
     using logger = std::function<void(source_location loc, const std::string &)>;
-
-    struct factory
-    {
-        default_task_registry create() { return {}; }
-    };
 
     struct task_info
     {
@@ -97,6 +97,7 @@ public:
             for (const auto &s : m_subscribers) {
                 s->task_resumed(m_tasks[i]);
             }
+            m_about_to_resume(shared_from_this());
             m_tasks[i].h.resume();
             return true;
         }
@@ -183,6 +184,16 @@ public:
      */
     bool proceed() noexcept override
     {
+        // if (m_crush_counter++ > 40) {
+        //     std::abort();
+        // }
+
+        // std::cout << "proceed: " << this << " -> tasks: " << m_tasks.size() << std::endl;
+        // for (const auto &t : m_tasks) {
+        //     std::cout << "\t" << t.h.address() << " -> done: " << t.h.done()
+        //               << ", suspended: " << t.suspended << std::endl;
+        // }
+
         if (m_tasks.empty()) {
             m_i = 0;
             return false;
@@ -251,6 +262,7 @@ protected:
     }
 
 private:
+    function<void(shared<default_task_registry> &&)> m_about_to_resume;
     std::size_t m_i = 0;
     std::vector<task_info> m_tasks;
     logger m_logger;

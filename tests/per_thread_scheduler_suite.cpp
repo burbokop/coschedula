@@ -1,12 +1,13 @@
 // Copyright 2023 Borys Boiko
 
 #include "../src/task.h"
-#include "../src/utils.h"
-#include <gtest/gtest.h>
+#include "utils.h"
 #include <array>
+#include <gtest/gtest.h>
 
 namespace coschedula::tests {
 
+using r = default_task_registry;
 using sch = per_thread_scheduler<default_task_registry>;
 
 class per_thread_scheduler_suite : public ::testing::Test
@@ -27,7 +28,9 @@ protected:
 
 TEST_F(per_thread_scheduler_suite, void_task)
 {
-    runner_guard<sch> g;
+    const auto registry = std::make_shared<r>(
+        function<void(shared<r> &&)>([](shared<r> &&r) { sch::about_to_resume(std::move(r)); }));
+    runner_guard<sch, r> g(registry);
     bool entered = false;
     const auto &&void_task_coro = [&entered]() -> task<void, sch> {
         entered = true;
@@ -36,15 +39,16 @@ TEST_F(per_thread_scheduler_suite, void_task)
     const auto t = void_task_coro();
     ASSERT_FALSE(entered);
     ASSERT_FALSE(done(t));
-    ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_TRUE(entered);
     ASSERT_TRUE(done(t));
 }
 
 TEST_F(per_thread_scheduler_suite, two_dep)
 {
-    runner_guard<sch> g;
-
+    const auto registry = std::make_shared<r>(
+        function<void(shared<r> &&)>([](shared<r> &&r) { sch::about_to_resume(std::move(r)); }));
+    runner_guard<sch, r> g(registry);
     std::vector<std::size_t> seq;
     const auto &&dep_task_coro0 = [&seq]() -> task<std::string, sch> {
         seq.push_back(0);
@@ -93,7 +97,7 @@ TEST_F(per_thread_scheduler_suite, two_dep)
     ASSERT_EQ(seq, std::vector<std::size_t>{});
     ASSERT_FALSE(done(t));
     ASSERT_FALSE(result(t));
-    ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
+    ASSERT_TRUE(proceed_until_empty(*registry));
     ASSERT_EQ(seq[0], 6);
     ASSERT_EQ(seq[1], 7);
     ASSERT_EQ(seq[2], 8);
@@ -116,19 +120,23 @@ TEST_F(per_thread_scheduler_suite, two_dep)
 TEST_F(per_thread_scheduler_suite, parallel)
 {
     using std::chrono::operator""us;
-    runner_guard<sch> g;
+    const auto registry = std::make_shared<r>(
+        function<void(shared<r> &&)>([](shared<r> &&r) { sch::about_to_resume(std::move(r)); }));
+    runner_guard<sch, r> g(registry);
 
     struct ctx
     {
         std::atomic_bool entered = false;
         std::atomic_bool done = false;
-        std::atomic<task_registry *> reg = nullptr;
+        std::atomic<task_registry *> reg;
     };
 
     std::array<ctx, 2> ctxs;
 
     auto t0 = std::thread{[&ctxs] {
-        runner_guard<sch> g;
+        const auto registry = std::make_shared<r>(function<void(shared<r> &&)>(
+            [](shared<r> &&r) { sch::about_to_resume(std::move(r)); }));
+        runner_guard<sch, r> g(registry);
         const auto &&t = [&ctxs]() -> task<void, sch> {
             ctxs[0].entered = true;
             for (std::size_t i = 0; i < 100; ++i) {
@@ -138,12 +146,14 @@ TEST_F(per_thread_scheduler_suite, parallel)
             ctxs[0].done = true;
             co_return;
         }();
-        ctxs[0].reg = &sch::registry();
-        ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
+        ctxs[0].reg = &*sch::registry();
+        ASSERT_TRUE(proceed_until_empty(*registry));
     }};
 
     auto t1 = std::thread{[&ctxs] {
-        runner_guard<sch> g;
+        const auto registry = std::make_shared<r>(function<void(shared<r> &&)>(
+            [](shared<r> &&r) { sch::about_to_resume(std::move(r)); }));
+        runner_guard<sch, r> g(registry);
         const auto &&t = [&ctxs]() -> task<void, sch> {
             ctxs[1].entered = true;
             for (std::size_t i = 0; i < 100; ++i) {
@@ -153,19 +163,19 @@ TEST_F(per_thread_scheduler_suite, parallel)
             ctxs[1].done = true;
             co_return;
         }();
-        ctxs[1].reg = &sch::registry();
-        ASSERT_TRUE(coschedula::proceed_until_empty<sch>());
+        ctxs[1].reg = &*sch::registry();
+        ASSERT_TRUE(proceed_until_empty(*registry));
     }};
 
     t0.join(), t1.join();
 
-    ASSERT_FALSE(coschedula::proceed_until_empty<sch>());
+    ASSERT_FALSE(proceed_until_empty(*registry));
     ASSERT_TRUE(ctxs[0].entered);
     ASSERT_TRUE(ctxs[1].entered);
     ASSERT_TRUE(ctxs[0].done);
     ASSERT_TRUE(ctxs[1].done);
-    ASSERT_TRUE(ctxs[0].reg != ctxs[1].reg && ctxs[0].reg != &sch::registry()
-                && ctxs[1].reg != &sch::registry());
+    ASSERT_TRUE(ctxs[0].reg != ctxs[1].reg && ctxs[0].reg != &*sch::registry()
+                && ctxs[1].reg != &*sch::registry());
 }
 
 } // namespace coschedula::tests

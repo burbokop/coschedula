@@ -127,12 +127,18 @@ TEST(runners_suite, concurrent_recursive)
             co_await suspend{};
             co_return "ssss";
         });
+
+        std::cout << "before inner proceed" << std::endl;
         runner.proceed();
+        std::cout << "after inner proceed" << std::endl;
 
         co_await suspend{};
+        std::cout << "before inner wait" << std::endl;
         auto r = std::move(runner).wait();
+        std::cout << "after inner wait" << std::endl;
         co_await suspend{};
 
+        std::cout << "before inner co_return" << std::endl;
         co_return r;
     });
 
