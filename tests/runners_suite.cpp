@@ -1,10 +1,7 @@
 // Copyright 2023 Borys Boiko
 
-#include "../src/fs.h"
-#include "../src/global_scheduler.h"
 #include "../src/runners.h"
 #include <gtest/gtest.h>
-#include <list>
 #include <string>
 
 namespace coschedula::tests {

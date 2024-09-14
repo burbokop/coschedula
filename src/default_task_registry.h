@@ -180,26 +180,20 @@ public:
      * while(scheduler::instance<scheduler>::proceed()){}
      * ```
      * or in some timer if using with some frameworks
-     * @return true if all tasks completed
+     * @return true if still has some work to do 
      */
     bool proceed() noexcept override
     {
-        // if (m_crush_counter++ > 40) {
-        //     std::abort();
-        // }
-
-        // std::cout << "proceed: " << this << " -> tasks: " << m_tasks.size() << std::endl;
-        // for (const auto &t : m_tasks) {
-        //     std::cout << "\t" << t.h.address() << " -> done: " << t.h.done()
-        //               << ", suspended: " << t.suspended << std::endl;
-        // }
-
         if (m_tasks.empty()) {
             m_i = 0;
             return false;
         }
 
         if (remove_if_done(m_i)) {
+            if (m_tasks.empty()) {
+                m_i = 0;
+                return false;
+            }
             return true;
         }
 

@@ -8,7 +8,7 @@
 namespace coschedula {
 
 namespace tests {
-class global_scheduler_suite;
+class single_thread_suite;
 class per_thread_scheduler_suite;
 class fs_suite;
 } // namespace tests
@@ -48,7 +48,7 @@ struct async_impl;
 template<typename T = void, scheduler S = default_scheduler>
 class task
 {
-    friend tests::global_scheduler_suite;
+    friend tests::single_thread_suite;
     friend tests::per_thread_scheduler_suite;
     friend tests::fs_suite;
     friend async_impl;
@@ -145,11 +145,12 @@ public:
         return awaiter{m_handle.promise()};
     }
 
-private:
     /**
      * @return true if task is completed
      */
     bool done() const { return m_handle.done(); }
+
+private:
 
     /**
      * @return result of task returned by **co_return** or std::nullopt if task not yet done
@@ -159,6 +160,13 @@ private:
     {
         return m_handle.done() ? m_handle.promise().result : std::nullopt;
     }
+
+    std::optional<T> release_result() &&
+        requires(!std::is_same_v<T, void>)
+    {
+        return m_handle.done() ? std::exchange(m_handle, nullptr).promise().result : std::nullopt;
+    }
+
 private:
     std::coroutine_handle<promise_type> m_handle;
 };

@@ -47,7 +47,7 @@ struct impl
                     std::this_thread::yield();
                 }
                 if constexpr (!std::is_same_v<T, void>) {
-                    auto result = task.result().value();
+                    auto result = std::move(task).release_result().value();
                     return result;
                 }
             },
@@ -68,7 +68,7 @@ struct impl
             std::this_thread::yield();
         }
         if constexpr (!std::is_same_v<T, void>) {
-            auto result = task.result().value();
+            auto result = std::move(task).release_result().value();
             return result;
         }
     }
@@ -139,12 +139,31 @@ public:
         , m_task(std::move(task))
     {}
 
+    /**
+     * @brief proceed
+     * @return true if still has some work to do 
+     */
     bool proceed()
     {
         assert(!m_g.moved());
         return m_r->proceed();
     }
 
+    /**
+     * @brief done
+     * @return true if all task done
+     * @note can be false when root task is done
+     */
+    bool done() const
+    {
+        assert(!m_g.moved());
+        return m_r->tasks().empty();
+    }
+
+    /**
+     * @brief wait - Block current thread until completed. Just return result if already completed
+     * @return 
+     */
     T wait() &&
     {
         std::size_t i = 0;
@@ -159,7 +178,7 @@ public:
         }
         std::cout << "wait_1: " << S::stack_pos() << " " << &*m_r << std::endl;
 
-        const auto result = m_task.result().value();
+        const auto result = std::move(m_task).release_result().value();
         auto g = std::move(m_g);
         return result;
     }
