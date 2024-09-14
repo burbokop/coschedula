@@ -1,7 +1,6 @@
 // Copyright 2023 Borys Boiko
 
 #include "../src/async.h"
-#include "../src/global_scheduler.h"
 #include "../src/runners.h"
 #include "../src/task.h"
 #include "../src/utils.h"
@@ -39,15 +38,13 @@ auto without_coroutines_manual_loop(const auto &words)
     return result;
 }
 
-template<scheduler S = global_scheduler<default_task_registry>>
-::coschedula::task<std::vector<std::string>, S> seq(const std::string &words)
+::coschedula::task<std::vector<std::string>> seq(const std::string &words)
 {
     co_return std::vector<std::string>(benchmarks::utils::word_iterator<std::string>(words),
                                        benchmarks::utils::word_iterator<std::string>());
 };
 
-template<scheduler S = global_scheduler<default_task_registry>>
-::coschedula::task<std::vector<std::string>, S> seq_async(const std::string &words)
+::coschedula::task<std::vector<std::string>> seq_async(const std::string &words)
 {
     std::vector<std::string> result;
     std::size_t i = 0;
@@ -62,10 +59,9 @@ template<scheduler S = global_scheduler<default_task_registry>>
     co_return result;
 };
 
-template<scheduler S = global_scheduler<default_task_registry>>
-::coschedula::task<std::vector<std::string>, S> par(const std::string &words)
+::coschedula::task<std::vector<std::string>> par(const std::string &words)
 {
-    return ::coschedula::async<S>(
+    return ::coschedula::async(
         [](const std::string &words) {
             return std::vector<std::string>(benchmarks::utils::word_iterator<std::string>(words),
                                             benchmarks::utils::word_iterator<std::string>());
@@ -95,66 +91,33 @@ void without_coroutines_manual_loop(benchmark::State &state)
 
 void seq(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
-        benchmark::DoNotOptimize(
-            runners::block_on<global_scheduler<s>, s>(separate_words::seq<global_scheduler<s>>,
-                                                      words));
+        benchmark::DoNotOptimize(runners::block_on(separate_words::seq, words));
     }
 }
 
 void seq_async(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
 
-        benchmark::DoNotOptimize(
-            runners::block_on<global_scheduler<s>, s>(separate_words::seq_async<global_scheduler<s>>,
-                                                      words));
+        benchmark::DoNotOptimize(runners::block_on(separate_words::seq_async, words));
     }
 }
 
 void par(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
 
-        benchmark::DoNotOptimize(
-            runners::block_on<global_scheduler<s>, s>(separate_words::par<global_scheduler<s>>,
-                                                      words));
+        benchmark::DoNotOptimize(runners::block_on(separate_words::par, words));
     }
 }
 
@@ -180,77 +143,46 @@ void two_tasks_without_coroutines_manual_loop(benchmark::State &state)
 
 void two_tasks_seq(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
-        runners::block_on<global_scheduler<s>, s>(
-            [&words]() -> ::coschedula::task<void, global_scheduler<s>> {
-                const auto t0 = separate_words::seq<global_scheduler<s>>(words);
-                const auto t1 = separate_words::seq<global_scheduler<s>>(words);
-                benchmark::DoNotOptimize(co_await t0);
-                benchmark::DoNotOptimize(co_await t1);
-            });
+        runners::block_on([&words]() -> ::coschedula::task<void> {
+            const auto t0 = separate_words::seq(words);
+            const auto t1 = separate_words::seq(words);
+            benchmark::DoNotOptimize(co_await t0);
+            benchmark::DoNotOptimize(co_await t1);
+        });
     }
 }
 
 void two_tasks_seq_async(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
-        runners::block_on<global_scheduler<s>, s>(
-            [&words]() -> ::coschedula::task<void, global_scheduler<s>> {
-                const auto t0 = separate_words::seq_async<global_scheduler<s>>(words);
-                const auto t1 = separate_words::seq_async<global_scheduler<s>>(words);
-                benchmark::DoNotOptimize(co_await t0);
-                benchmark::DoNotOptimize(co_await t1);
-            });
+        runners::block_on([&words]() -> ::coschedula::task<void> {
+            const auto t0 = separate_words::seq_async(words);
+            const auto t1 = separate_words::seq_async(words);
+            benchmark::DoNotOptimize(co_await t0);
+            benchmark::DoNotOptimize(co_await t1);
+        });
     }
 }
 
 void two_tasks_par(benchmark::State &state)
 {
-    struct s : public default_task_registry
-    {
-        s(function<void(shared<s> &&)> &&about_to_resume)
-            : default_task_registry([](shared<default_task_registry> &&r) {
-                global_scheduler<s>::about_to_resume(
-                    std::move(std::dynamic_pointer_cast<s>(r.nullable())));
-            })
-        {}
-    };
-
     const auto words = benchmarks::utils::gen_text(word_len, word_count);
 
     for (auto _ : state) {
         (void) _;
-        runners::block_on<global_scheduler<s>, s>(
-            [&words]() -> ::coschedula::task<void, global_scheduler<s>> {
-                const auto t0 = separate_words::par<global_scheduler<s>>(words);
-                const auto t1 = separate_words::par<global_scheduler<s>>(words);
-                benchmark::DoNotOptimize(co_await t0);
-                benchmark::DoNotOptimize(co_await t1);
-            });
+        runners::block_on([&words]() -> ::coschedula::task<void> {
+            const auto t0 = separate_words::par(words);
+            const auto t1 = separate_words::par(words);
+            benchmark::DoNotOptimize(co_await t0);
+            benchmark::DoNotOptimize(co_await t1);
+        });
     }
 }
 
