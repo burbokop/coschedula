@@ -2,7 +2,6 @@
 
 #include "../src/runners.h"
 #include "../src/task.h"
-#include "random_gen.h"
 #include <benchmark/benchmark.h>
 
 namespace coschedula::benchmarks::complexity {

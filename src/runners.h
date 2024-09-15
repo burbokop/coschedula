@@ -46,19 +46,12 @@ public:
      */
     T wait() &&
     {
-        std::size_t i = 0;
-
         auto dispatcher = std::move(m_dispatcher);
         auto scheduler = std::move(m_scheduler);
 
-        // std::cout << "wait_0: " << S::stack_pos() << " " << &*m_r << std::endl;
         while (dispatcher->proceed(*scheduler)) {
             std::this_thread::yield();
-
-            if (i++ > 20)
-                std::abort();
         }
-        // std::cout << "wait_1: " << S::stack_pos() << " " << &*m_r << std::endl;
 
         return std::move(m_task).release_result().value();
     }

@@ -3,7 +3,6 @@
 #pragma once
 
 #include <cassert>
-#include <optional>
 
 namespace coschedula {
 

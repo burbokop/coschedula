@@ -6,7 +6,6 @@
 #include "scheduler.h"
 #include <cassert>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -69,6 +68,7 @@ public:
         if (auto i = indexOf(h)) {
             const auto ok = mark_suspended(*i);
             assert(ok);
+            static_cast<void>(ok);
         }
     }
 
@@ -78,6 +78,7 @@ public:
         if (auto i = indexOf(current)) {
             const auto ok = mark_suspended(*i, dep);
             assert(ok);
+            static_cast<void>(ok);
         }
     }
 

@@ -3,13 +3,9 @@
 #include "../src/async.h"
 #include "../src/runners.h"
 #include "../src/task.h"
-#include "../src/utils.h"
 #include "random_gen.h"
 #include "word_iterator.h"
 #include <benchmark/benchmark.h>
-#include <iostream>
-#include <list>
-#include <random>
 #include <string>
 
 namespace coschedula::benchmarks::task {
