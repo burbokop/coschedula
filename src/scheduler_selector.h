@@ -12,14 +12,14 @@ namespace coschedula {
 
 namespace runners {
 struct impl;
-template<typename T, scheduler S, std::derived_from<task_registry> R>
+template<typename T, std::derived_from<task_registry> R>
 class concurrent_runner;
 } // namespace runners
 
 struct async_impl;
 class suspend;
 
-template<typename T, scheduler S>
+template<typename T, std::derived_from<task_registry> R>
 class task;
 
 namespace impl {
@@ -33,10 +33,10 @@ class scheduler_selector
 {
     friend async_impl;
     friend runners::impl;
-    template<typename, scheduler, std::derived_from<task_registry>>
+    template<typename, std::derived_from<task_registry>>
     friend class runners::concurrent_runner;
 
-    template<typename T, scheduler S>
+    template<typename, std::derived_from<task_registry>>
     friend class coschedula::task;
     friend coschedula::suspend;
 

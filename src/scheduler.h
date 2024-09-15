@@ -2,32 +2,10 @@
 
 #pragma once
 
-#include "nonull.h"
 #include "source_location.h"
-#include "utils.h"
 #include <coroutine>
-#include <utility>
 
 namespace coschedula {
-
-/**
- * @brief The scheduler - provides scheduling mechanism for all task related to it
- * @note does not contain actual information about tasks. this functionality is delegated to `coschedula::task_registry`
- */
-template<typename T>
-concept scheduler = requires(std::coroutine_handle<> handle,
-                             std::coroutine_handle<> dep,
-                             source_location loc) {
-    // { T::push_runner() } -> std::same_as<void>;
-    // { T::pop_runner() } -> std::same_as<void>;
-    // { T::about_to_resume() } -> std::same_as<void>;
-
-    // { T::add_initialy_suspended(handle, loc) } noexcept -> std::same_as<void>;
-    // { T::suspend(handle) } noexcept -> std::same_as<void>;
-    // { T::await_suspend(handle, dep) } noexcept -> std::same_as<void>;
-    // { T::proceed() } -> std::same_as<bool>;
-    { T::stack_pos() } -> std::same_as<std::size_t>;
-};
 
 /**
  * @brief The task_registry class - which hold imformation about tasks

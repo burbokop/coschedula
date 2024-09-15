@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "nonull.h"
 #include "scheduler.h"
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <set>

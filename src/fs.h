@@ -57,7 +57,7 @@ private:
  */
 template<typename C = std::string::value_type,
          execution exec = execution::seq,
-         scheduler S = default_scheduler>
+         std::derived_from<task_registry> S = default_task_registry>
 [[nodiscard]] task<expected<std::basic_string<C>, error>, S> read(const std::filesystem::path path)
 {
     if constexpr (exec == execution::par) {
@@ -106,7 +106,7 @@ template<typename C = std::string::value_type,
     }
 }
 
-template<scheduler S = default_scheduler, std::ranges::range R>
+template<std::derived_from<task_registry> S = default_task_registry, std::ranges::range R>
 [[nodiscard]] task<expected<void, error>, S> write(const std::filesystem::path path, R &&range)
     requires(std::is_same_v<std::ranges::range_value_t<R>, std::byte>)
 {
@@ -124,7 +124,7 @@ template<scheduler S = default_scheduler, std::ranges::range R>
     co_return {};
 }
 
-template<scheduler S = default_scheduler, std::ranges::range R>
+template<std::derived_from<task_registry> S = default_task_registry, std::ranges::range R>
 [[nodiscard]] task<expected<void, std::string>, S> write(const std::filesystem::path path, R &&range)
     requires(std::is_same_v<std::ranges::range_value_t<R>, char>)
 {
