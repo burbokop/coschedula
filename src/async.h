@@ -33,8 +33,7 @@ struct async_impl
             std::launch::async,
             [f = std::move(f)](Args &&...args) -> T {
                 shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
-                runner_guard<S, R> g(r);
-                auto task = f(std::forward<Args>(args)...);
+                auto task = S::bind(copy(r), std::move(f), std::forward<Args>(args)...);
                 while (r->proceed()) {
                     std::this_thread::yield();
                 }

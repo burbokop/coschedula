@@ -5,21 +5,42 @@
 #include "nonull.h"
 #include "scheduler.h"
 #include <iostream>
-#include <map>
-#include <mutex>
 #include <optional>
 #include <stack>
-#include <thread>
 
 namespace coschedula {
 
+namespace runners {
+struct impl;
+template<typename T, scheduler S, std::derived_from<task_registry> R>
+class concurrent_runner;
+} // namespace runners
+
+struct async_impl;
+class suspend;
+
+template<typename T, scheduler S>
+class task;
+
+namespace impl {
+
 /**
- * @brief The per_thread_scheduler class - one task_registry per thread allows executing multiple coroutines in different threads
+ * @brief The scheduler_selector class - selects current active scheduler
  * @threadsafe
  */
 template<std::derived_from<task_registry> R>
-class per_thread_scheduler
+class scheduler_selector
 {
+    friend async_impl;
+    friend runners::impl;
+    template<typename, scheduler, std::derived_from<task_registry>>
+    friend class runners::concurrent_runner;
+
+    template<typename T, scheduler S>
+    friend class coschedula::task;
+    friend coschedula::suspend;
+
+private:
     struct stack_frame
     {
         shared<R> registry;
@@ -27,15 +48,25 @@ class per_thread_scheduler
     };
 
 public:
-    per_thread_scheduler() = delete;
-
-    static void *ptr()
+    [[deprecated("Debug info")]] static void *ptr()
     {
         return (s_stack.empty() ? reinterpret_cast<void *>(0)
                                 : reinterpret_cast<void *>(&*stack_frame().registry));
     }
 
-    static void *stack_ptr() { return &s_stack; }
+    [[deprecated("Debug info")]] static void *stack_ptr() { return &s_stack; }
+
+    [[deprecated("Debug info")]] static std::size_t stack_pos() { return s_stack.size(); }
+
+private:
+    scheduler_selector() = delete;
+
+    template<typename... Args>
+    static decltype(auto) bind(shared<R> &&registry, Args &&...args)
+    {
+        push_runner(std::move(registry));
+        return std::invoke(std::forward<Args>(args)...);
+    }
 
     static void push_runner(shared<R> &&registry)
     {
@@ -151,15 +182,12 @@ public:
                   << ptr_after << ")" << std::endl;
     }
 
-    static std::size_t stack_pos() { return s_stack.size(); }
-
     // static bool proceed()
     // {
     //     std::cout << "proceed: " << s_registries[std::this_thread::get_id()].size() << std::endl;
     //     return registry(std::this_thread::get_id())->proceed();
     // }
 
-private:
     static struct stack_frame &stack_frame()
     {
         assert(!s_stack.empty());
@@ -171,4 +199,5 @@ private:
     inline static thread_local std::stack<struct stack_frame> s_stack;
 };
 
+} // namespace impl
 } // namespace coschedula

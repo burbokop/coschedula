@@ -63,7 +63,7 @@ class task
         void await_suspend(std::coroutine_handle<P> h,
                            source_location loc = source_location::current()) const noexcept
         {
-            S::add_initialy_suspended(h, loc);
+            task::add_initialy_suspended(h, loc);
         }
 
         void await_resume() const noexcept {}
@@ -131,7 +131,7 @@ public:
             constexpr bool await_ready() const noexcept { return false; }
             void await_suspend(std::coroutine_handle<> h) const noexcept
             {
-                S::await_suspend(h, std::coroutine_handle<promise_type>::from_promise(p));
+                task::await_suspend(h, std::coroutine_handle<promise_type>::from_promise(p));
             }
 
             T await_resume() const noexcept
@@ -151,6 +151,15 @@ public:
     bool done() const { return m_handle.done(); }
 
 private:
+    static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
+    {
+        S::add_initialy_suspended(h, loc);
+    }
+
+    static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
+    {
+        S::await_suspend(current, dep);
+    }
 
     /**
      * @return result of task returned by **co_return** or std::nullopt if task not yet done
@@ -192,11 +201,17 @@ private:
         void await_suspend(std::coroutine_handle<P> h) const noexcept
             requires(scheduler<typename P::related_scheduler>)
         {
-            P::related_scheduler::suspend(h);
+            suspend::suspend_impl<typename P::related_scheduler>(h);
         }
 
         void await_resume() const noexcept {}
     };
+
+    template<scheduler S>
+    static void suspend_impl(std::coroutine_handle<> h) noexcept
+    {
+        S::suspend(h);
+    }
 };
 
 namespace concepts_impl {

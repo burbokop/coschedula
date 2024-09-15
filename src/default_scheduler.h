@@ -3,11 +3,11 @@
 #pragma once
 
 #include "default_task_registry.h"
-#include "per_thread_scheduler.h"
+#include "scheduler_selector.h"
 
 namespace coschedula {
 
 // TODO add option to cmake defining default scheduler and add ability to disable specific schedulers on compile time
-using default_scheduler = per_thread_scheduler<default_task_registry>;
+using default_scheduler = impl::scheduler_selector<default_task_registry>;
 
 } // namespace coschedula

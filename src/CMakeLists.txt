@@ -14,8 +14,8 @@ target_sources(
          $<INSTALL_INTERFACE:${INSTALLDIR}/task.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/scheduler.h>
          $<INSTALL_INTERFACE:${INSTALLDIR}/scheduler.h>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/per_thread_scheduler.h>
-         $<INSTALL_INTERFACE:${INSTALLDIR}/per_thread_scheduler.h>
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/scheduler_selector.h>
+         $<INSTALL_INTERFACE:${INSTALLDIR}/scheduler_selector.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/default_scheduler.h>
          $<INSTALL_INTERFACE:${INSTALLDIR}/default_scheduler.h>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/default_task_registry.h>

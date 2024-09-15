@@ -1,3 +1,5 @@
+// Copyright 2023 Borys Boiko
+
 #pragma once
 
 #include "task.h"
@@ -8,6 +10,60 @@
  * @details Basically runners switch normal c++ context to asynchronous coroutines context
  */
 namespace coschedula::runners {
+
+template<typename T, scheduler S, std::derived_from<task_registry> R>
+class concurrent_runner
+{
+public:
+    concurrent_runner(const concurrent_runner &) = delete;
+    concurrent_runner &operator=(const concurrent_runner &) = delete;
+    concurrent_runner(concurrent_runner &&) = default;
+    concurrent_runner &operator=(concurrent_runner &&) = default;
+
+    concurrent_runner(shared<R> &&r, task<T, S> &&task)
+        : m_r(std::move(r))
+        , m_task(std::move(task))
+    {}
+
+    /**
+     * @brief proceed
+     * @return true if still has some work to do 
+     */
+    bool proceed() { return m_r->proceed(); }
+
+    /**
+     * @brief done
+     * @return true if all task done
+     * @note can be false when root task is done
+     */
+    bool done() const { return m_r->tasks().empty(); }
+
+    /**
+     * @brief wait - Block current thread until completed. Just return result if already completed
+     * @return 
+     */
+    T wait() &&
+    {
+        std::size_t i = 0;
+
+        auto r = std::move(m_r);
+
+        // std::cout << "wait_0: " << S::stack_pos() << " " << &*m_r << std::endl;
+        while (r->proceed()) {
+            std::this_thread::yield();
+
+            if (i++ > 20)
+                std::abort();
+        }
+        // std::cout << "wait_1: " << S::stack_pos() << " " << &*m_r << std::endl;
+
+        return std::move(m_task).release_result().value();
+    }
+
+private:
+    shared<R> m_r;
+    task<T, S> m_task;
+};
 
 /// impl struct exists to be able to add it as friend to another internal components
 struct impl
@@ -20,9 +76,7 @@ struct impl
     {
         return std::thread([f = std::move(f)] {
             const shared<R> rt = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
-
-            runner_guard<S, R> g(rt);
-            auto task = f();
+            auto task = S::bind(copy(rt), std::move(f));
             while (rt->proceed()) {
                 std::this_thread::yield();
             }
@@ -39,8 +93,7 @@ struct impl
             std::launch::async,
             [f = std::move(f)](Args &&...args) {
                 shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
-                runner_guard<S, R> g(r);
-                auto task = f(std::forward<Args>(args)...);
+                auto task = S::bind(copy(r), std::move(f), std::forward<Args>(args)...);
                 while (r->proceed()) {
                     std::this_thread::yield();
                 }
@@ -59,8 +112,7 @@ struct impl
         }
     {
         shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
-        runner_guard<S, R> g(r);
-        auto task = f(std::forward<Args>(args)...);
+        auto task = S::bind(copy(r), std::move(f), std::forward<Args>(args)...);
         while (r->proceed()) {
             std::this_thread::yield();
         }
@@ -68,6 +120,17 @@ struct impl
             auto result = std::move(task).release_result().value();
             return result;
         }
+    }
+
+    template<typename T, scheduler S, std::derived_from<task_registry> R, typename... Args>
+    static auto concurrent(auto &&f, Args &&...args) -> concurrent_runner<T, S, R>
+        requires requires {
+            { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
+        }
+    {
+        shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
+        return concurrent_runner(std::move(r),
+                                 S::bind(copy(r), std::move(f), std::forward<Args>(args)...));
     }
 };
 
@@ -121,71 +184,6 @@ auto block_on(F &&f, Args &&...args) -> result_type<decltype(f(std::forward<Args
         std::move(f), std::forward<Args>(args)...);
 }
 
-template<typename T, scheduler S, std::derived_from<task_registry> R>
-class concurrent_runner
-{
-public:
-    concurrent_runner(const concurrent_runner &) = delete;
-    concurrent_runner &operator=(const concurrent_runner &) = delete;
-    concurrent_runner(concurrent_runner &&) = default;
-    concurrent_runner &operator=(concurrent_runner &&) = default;
-
-    concurrent_runner(shared<R> &&r, runner_guard<S, R> &&g, task<T, S> &&task)
-        : m_r(std::move(r))
-        , m_g(std::move(g))
-        , m_task(std::move(task))
-    {}
-
-    /**
-     * @brief proceed
-     * @return true if still has some work to do 
-     */
-    bool proceed()
-    {
-        assert(!m_g.moved());
-        return m_r->proceed();
-    }
-
-    /**
-     * @brief done
-     * @return true if all task done
-     * @note can be false when root task is done
-     */
-    bool done() const
-    {
-        assert(!m_g.moved());
-        return m_r->tasks().empty();
-    }
-
-    /**
-     * @brief wait - Block current thread until completed. Just return result if already completed
-     * @return 
-     */
-    T wait() &&
-    {
-        std::size_t i = 0;
-
-        assert(!m_g.moved());
-        std::cout << "wait_0: " << S::stack_pos() << " " << &*m_r << std::endl;
-        while (m_r->proceed()) {
-            std::this_thread::yield();
-
-            if (i++ > 20)
-                std::abort();
-        }
-        std::cout << "wait_1: " << S::stack_pos() << " " << &*m_r << std::endl;
-
-        const auto result = std::move(m_task).release_result().value();
-        auto g = std::move(m_g);
-        return result;
-    }
-
-private:
-    shared<R> m_r;
-    runner_guard<S, R> m_g;
-    task<T, S> m_task;
-};
-
 /**
  * @brief concurrent - run coroutine in current thread without blocking thread
  * @note not suggested to use with global_scheduler because it may cause thread to run coroutines from another threads
@@ -200,9 +198,8 @@ auto concurrent(F &&f, Args &&...args)
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
-    shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
-    runner_guard<S, R> g(r);
-    return concurrent_runner(std::move(r), std::move(g), f(std::forward<Args>(args)...));
+    return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, R, Args...>(
+        std::move(f), std::forward<Args>(args)...);
 }
 
 } // namespace coschedula::runners
