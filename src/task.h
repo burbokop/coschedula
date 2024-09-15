@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "default_scheduler.h"
+#include "default_dispatcher.h"
+#include "dispatcher_selector.h"
 #include <utility>
 
 namespace coschedula {
@@ -15,7 +16,7 @@ class fs_suite;
 
 namespace runners {
 struct impl;
-template<typename T, std::derived_from<task_registry> R>
+template<typename, std::derived_from<dispatcher>>
 class concurrent_runner;
 } // namespace runners
 
@@ -45,15 +46,14 @@ struct async_impl;
  * }
  * ```
  */
-template<typename T = void, std::derived_from<task_registry> R = default_task_registry>
-class task
-{
+template<typename T = void, std::derived_from<dispatcher> D = default_dispatcher>
+class task {
     friend tests::single_thread_suite;
     friend tests::per_thread_scheduler_suite;
     friend tests::fs_suite;
     friend async_impl;
     friend runners::impl;
-    template<typename, std::derived_from<task_registry>>
+    template<typename, std::derived_from<dispatcher>>
     friend class runners::concurrent_runner;
 
     struct init_suspend
@@ -71,7 +71,7 @@ class task
 
     struct base_promise_type
     {
-        using related_scheduler = R;
+        using related_dispatcher = D;
 
         init_suspend initial_suspend() noexcept { return {}; };
         std::suspend_always final_suspend() noexcept { return {}; };
@@ -153,12 +153,12 @@ public:
 private:
     static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
     {
-        impl::scheduler_selector<R>::add_initialy_suspended(h, loc);
+        dispatcher_selector<D>::add_initialy_suspended(h, loc);
     }
 
     static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
     {
-        impl::scheduler_selector<R>::await_suspend(current, dep);
+        dispatcher_selector<D>::await_suspend(current, dep);
     }
 
     /**
@@ -199,36 +199,34 @@ private:
 
         template<typename P>
         void await_suspend(std::coroutine_handle<P> h) const noexcept
-            requires(std::derived_from<typename P::related_scheduler, task_registry>)
+            requires(std::derived_from<typename P::related_dispatcher, dispatcher>)
         {
-            suspend::suspend_impl<typename P::related_scheduler>(h);
+            suspend::suspend_impl<typename P::related_dispatcher>(h);
         }
 
         void await_resume() const noexcept {}
     };
 
-    template<std::derived_from<task_registry> S>
+    template<std::derived_from<dispatcher> D>
     static void suspend_impl(std::coroutine_handle<> h) noexcept
     {
-        impl::scheduler_selector<S>::suspend(h);
+        dispatcher_selector<D>::suspend(h);
     }
 };
 
 namespace concepts_impl {
 
-template<typename T, std::derived_from<task_registry> S>
+template<typename T, std::derived_from<dispatcher> S>
 constexpr bool is_task_with_scheduler = false;
 
-template<typename T, std::derived_from<task_registry> S>
+template<typename T, std::derived_from<dispatcher> S>
 constexpr bool is_task_with_scheduler<task<T, S>, S> = true;
 
-template<typename T, std::derived_from<task_registry> S>
-struct result_type
-{};
+template<typename T, std::derived_from<dispatcher> S>
+struct result_type {};
 
-template<typename T, std::derived_from<task_registry> S>
-struct result_type<task<T, S>, S>
-{
+template<typename T, std::derived_from<dispatcher> S>
+struct result_type<task<T, S>, S> {
     using type = T;
 };
 
@@ -237,7 +235,7 @@ struct result_type<task<T, S>, S>
 template<typename T, typename S>
 concept task_with_scheduler = concepts_impl::is_task_with_scheduler<T, S>;
 
-template<typename T, std::derived_from<task_registry> S>
+template<typename T, std::derived_from<dispatcher> S>
 using result_type = typename concepts_impl::result_type<T, S>::type;
 
 } // namespace coschedula

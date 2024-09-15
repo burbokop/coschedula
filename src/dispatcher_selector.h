@@ -12,66 +12,71 @@ namespace coschedula {
 
 namespace runners {
 struct impl;
-template<typename T, std::derived_from<task_registry> R>
+template<typename, std::derived_from<dispatcher>>
 class concurrent_runner;
 } // namespace runners
 
 struct async_impl;
 class suspend;
 
-template<typename T, std::derived_from<task_registry> R>
+template<typename, std::derived_from<dispatcher>>
 class task;
-
-namespace impl {
 
 /**
  * @brief The scheduler_selector class - selects current active scheduler
  * @threadsafe
  */
-template<std::derived_from<task_registry> R>
-class scheduler_selector
-{
+template<std::derived_from<dispatcher> D>
+class dispatcher_selector {
     friend async_impl;
     friend runners::impl;
-    template<typename, std::derived_from<task_registry>>
+    template<typename, std::derived_from<dispatcher>>
     friend class runners::concurrent_runner;
 
-    template<typename, std::derived_from<task_registry>>
+    template<typename, std::derived_from<dispatcher>>
     friend class coschedula::task;
     friend coschedula::suspend;
 
 private:
     struct stack_frame
     {
-        shared<R> registry;
-        bool root_task_initiated;
+        shared<D> dispatcher;
+        bool x;
     };
 
 public:
-    [[deprecated("Debug info")]] static void *ptr()
+    static shared<const D> current_dispatcher()
     {
-        return (s_stack.empty() ? reinterpret_cast<void *>(0)
-                                : reinterpret_cast<void *>(&*stack_frame().registry));
+        return stack_frame().dispatcher;
     }
 
-    [[deprecated("Debug info")]] static void *stack_ptr() { return &s_stack; }
+    static shared<scheduler> current_scheduler()
+    {
+        return stack_frame().dispatcher->__scheduler();
+    }
 
-    [[deprecated("Debug info")]] static std::size_t stack_pos() { return s_stack.size(); }
+    static std::size_t stack_depth() { return s_stack.size(); }
 
 private:
-    scheduler_selector() = delete;
+    dispatcher_selector() = delete;
+
+    [[deprecated("Debug info")]] static void* ptr()
+    {
+        return (s_stack.empty() ? reinterpret_cast<void*>(0)
+                                : reinterpret_cast<void*>(&*stack_frame().dispatcher));
+    }
 
     template<typename... Args>
-    static decltype(auto) bind(shared<R> &&registry, Args &&...args)
+    static decltype(auto) bind(shared<D>&& dispatcher, Args&&... args)
     {
-        push_runner(std::move(registry));
+        push_runner(std::move(dispatcher));
         return std::invoke(std::forward<Args>(args)...);
     }
 
-    static void push_runner(shared<R> &&registry)
+    static void push_runner(shared<D>&& dispatcher)
     {
         assert(!s_next);
-        s_next = registry;
+        s_next = dispatcher;
 
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
@@ -84,12 +89,12 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void enter_coro_context(shared<R> &&registry)
+    static void enter_coro_context(shared<D>&& dispatcher)
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
 
-        s_stack.emplace(std::move(registry), false);
+        s_stack.emplace(std::move(dispatcher), false);
 
         const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
@@ -99,12 +104,12 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void leave_coro_context(shared<R> &&registry)
+    static void leave_coro_context(shared<D>&& dispatcher)
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
 
-        assert(stack_frame().registry == registry);
+        assert(stack_frame().dispatcher == dispatcher);
         s_stack.pop();
 
         const auto size_after = s_stack.size();
@@ -137,8 +142,8 @@ private:
             s_next.reset();
         } else {
             // if inner task of this sheduler
-            assert(!stack_frame().registry->tasks().empty());
-            stack_frame().registry->add_initialy_suspended(h, loc);
+            assert(!stack_frame().dispatcher->tasks().empty());
+            stack_frame().dispatcher->add_initialy_suspended(h, loc);
         }
 
         const auto size_before = s_stack.size();
@@ -154,7 +159,7 @@ private:
 
     static void suspend(std::coroutine_handle<> h) noexcept
     {
-        stack_frame().registry->suspend(h);
+        stack_frame().dispatcher->suspend(h);
 
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
@@ -169,7 +174,7 @@ private:
 
     static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
     {
-        stack_frame().registry->await_suspend(current, dep);
+        stack_frame().dispatcher->await_suspend(current, dep);
 
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
@@ -188,16 +193,15 @@ private:
     //     return registry(std::this_thread::get_id())->proceed();
     // }
 
-    static struct stack_frame &stack_frame()
+    static struct stack_frame& stack_frame()
     {
         assert(!s_stack.empty());
         return s_stack.top();
     }
 
 private:
-    inline static thread_local std::optional<shared<R>> s_next;
+    inline static thread_local std::optional<shared<D>> s_next;
     inline static thread_local std::stack<struct stack_frame> s_stack;
 };
 
-} // namespace impl
 } // namespace coschedula
