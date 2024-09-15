@@ -65,7 +65,7 @@ public:
     virtual void add_initialy_suspended(std::coroutine_handle<> handle, source_location loc) noexcept = 0;
     virtual void suspend(std::coroutine_handle<> handle) noexcept = 0;
     virtual void await_suspend(std::coroutine_handle<> handle, std::coroutine_handle<> dep) noexcept = 0;
-    virtual bool proceed() noexcept = 0;
+    virtual bool proceed(scheduler&) noexcept = 0;
 };
 
 } // namespace coschedula

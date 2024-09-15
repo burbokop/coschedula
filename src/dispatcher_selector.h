@@ -41,7 +41,7 @@ private:
     struct stack_frame
     {
         shared<D> dispatcher;
-        bool x;
+        shared<scheduler> sch;
     };
 
 public:
@@ -52,7 +52,7 @@ public:
 
     static shared<scheduler> current_scheduler()
     {
-        return stack_frame().dispatcher->__scheduler();
+        return stack_frame().sch;
     }
 
     static std::size_t stack_depth() { return s_stack.size(); }
@@ -67,7 +67,7 @@ private:
     }
 
     template<typename... Args>
-    static decltype(auto) bind(shared<D>&& dispatcher, Args&&... args)
+    static decltype(auto) bind(shared<D>&& dispatcher, shared<scheduler>&&, Args&&... args)
     {
         push_runner(std::move(dispatcher));
         return std::invoke(std::forward<Args>(args)...);
@@ -89,12 +89,12 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void enter_coro_context(shared<D>&& dispatcher)
+    static void enter_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler)
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
 
-        s_stack.emplace(std::move(dispatcher), false);
+        s_stack.emplace(std::move(dispatcher), std::move(scheduler));
 
         const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
@@ -104,12 +104,13 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void leave_coro_context(shared<D>&& dispatcher)
+    static void leave_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler)
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
 
         assert(stack_frame().dispatcher == dispatcher);
+        assert(stack_frame().sch == scheduler);
         s_stack.pop();
 
         const auto size_after = s_stack.size();

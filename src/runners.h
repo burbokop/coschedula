@@ -12,7 +12,7 @@
  */
 namespace coschedula::runners {
 
-template<typename T, std::derived_from<dispatcher> S>
+template<typename T, std::derived_from<dispatcher> D>
 class concurrent_runner {
 public:
     concurrent_runner(const concurrent_runner&) = delete;
@@ -20,8 +20,9 @@ public:
     concurrent_runner(concurrent_runner&&) = default;
     concurrent_runner& operator=(concurrent_runner&&) = default;
 
-    concurrent_runner(shared<S>&& r, task<T, S>&& task)
-        : m_r(std::move(r))
+    concurrent_runner(shared<D>&& dispatcher, shared<scheduler>&& scheduler, task<T, D>&& task)
+        : m_dispatcher(std::move(dispatcher))
+        , m_scheduler(std::move(scheduler))
         , m_task(std::move(task))
     {
     }
@@ -30,14 +31,14 @@ public:
      * @brief proceed
      * @return true if still has some work to do
      */
-    bool proceed() { return m_r->proceed(); }
+    bool proceed() { return m_dispatcher->proceed(*m_scheduler); }
 
     /**
      * @brief done
      * @return true if all task done
      * @note can be false when root task is done
      */
-    bool done() const { return m_r->tasks().empty(); }
+    bool done() const { return m_dispatcher->tasks().empty(); }
 
     /**
      * @brief wait - Block current thread until completed. Just return result if already completed
@@ -47,10 +48,11 @@ public:
     {
         std::size_t i = 0;
 
-        auto r = std::move(m_r);
+        auto dispatcher = std::move(m_dispatcher);
+        auto scheduler = std::move(m_scheduler);
 
         // std::cout << "wait_0: " << S::stack_pos() << " " << &*m_r << std::endl;
-        while (r->proceed()) {
+        while (dispatcher->proceed(*scheduler)) {
             std::this_thread::yield();
 
             if (i++ > 20)
@@ -62,8 +64,9 @@ public:
     }
 
 private:
-    shared<S> m_r;
-    task<T, S> m_task;
+    shared<D> m_dispatcher;
+    shared<scheduler> m_scheduler;
+    task<T, D> m_task;
 };
 
 /// impl struct exists to be able to add it as friend to another internal components
@@ -77,12 +80,11 @@ struct impl
     {
         return std::thread([scheduler = std::move(scheduler), f = std::move(f)]() mutable {
             const shared<D> dispatcher = std::make_shared<D>(
-                std::move(scheduler),
-                dispatcher_selector<D>::enter_coro_context,
-                dispatcher_selector<D>::leave_coro_context);
+                [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-            auto task = dispatcher_selector<D>::bind(copy(dispatcher), std::move(f));
-            while (dispatcher->proceed()) {
+            auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f));
+            while (dispatcher->proceed(*scheduler)) {
                 std::this_thread::yield();
             }
         });
@@ -98,12 +100,11 @@ struct impl
             std::launch::async,
             [scheduler = std::move(scheduler), f = std::move(f)](Args&&... args) mutable {
                 const shared<D> dispatcher = std::make_shared<D>(
-                    std::move(scheduler),
-                    dispatcher_selector<D>::enter_coro_context,
-                    dispatcher_selector<D>::leave_coro_context);
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-                auto task = dispatcher_selector<D>::bind(copy(dispatcher), std::move(f), std::forward<Args>(args)...);
-                while (dispatcher->proceed()) {
+                auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
+                while (dispatcher->proceed(*scheduler)) {
                     std::this_thread::yield();
                 }
                 if constexpr (!std::is_same_v<T, void>) {
@@ -121,12 +122,11 @@ struct impl
         }
     {
         const shared<D> dispatcher = std::make_shared<D>(
-            std::move(scheduler),
-            dispatcher_selector<D>::enter_coro_context,
-            dispatcher_selector<D>::leave_coro_context);
+            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-        auto task = dispatcher_selector<D>::bind(copy(dispatcher), std::move(f), std::forward<Args>(args)...);
-        while (dispatcher->proceed()) {
+        auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
+        while (dispatcher->proceed(*scheduler)) {
             std::this_thread::yield();
         }
         if constexpr (!std::is_same_v<T, void>) {
@@ -142,14 +142,14 @@ struct impl
         }
     {
         shared<D> dispatcher = std::make_shared<D>(
-            std::move(scheduler),
-            dispatcher_selector<D>::enter_coro_context,
-            dispatcher_selector<D>::leave_coro_context);
+            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-        auto task = dispatcher_selector<D>::bind(copy(dispatcher), std::move(f), std::forward<Args>(args)...);
+        auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
 
         return concurrent_runner<T, D>(
             std::move(dispatcher),
+            std::move(scheduler),
             std::move(task));
     }
 };

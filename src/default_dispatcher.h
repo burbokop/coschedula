@@ -26,11 +26,9 @@ class default_dispatcher : public dispatcher,
                            public std::enable_shared_from_this<default_dispatcher> {
 public:
     default_dispatcher(
-        shared<scheduler>&& scheduler,
         function<void(shared<default_dispatcher>&&)>&& enter_coro_context,
         function<void(shared<default_dispatcher>&&)>&& leave_coro_context)
-        : m_scheduler(std::move(scheduler))
-        , m_enter_coro_context(std::move(enter_coro_context))
+        : m_enter_coro_context(std::move(enter_coro_context))
         , m_leave_coro_context(std::move(leave_coro_context))
     {}
 
@@ -180,7 +178,7 @@ public:
      * or in some timer if using with some frameworks
      * @return true if still has some work to do 
      */
-    bool proceed() noexcept override
+    bool proceed(scheduler& scheduler) noexcept override
     {
         if (m_tasks.empty()) {
             m_i = 0;
@@ -197,7 +195,7 @@ public:
 
         resume(m_i);
 
-        m_i = m_scheduler->select(m_i, m_tasks);
+        m_i = scheduler.select(m_i, m_tasks);
         return true;
     }
 
@@ -205,12 +203,12 @@ public:
      * @brief proceed_until_empty - block current thread untill all tasks done
      * @return true if any task was executed
      */
-    [[deprecated("Use runners::concurent instead")]] bool proceed_until_empty()
+    [[deprecated("Use runners::concurent instead")]] bool proceed_until_empty(scheduler& scheduler)
     {
         if (m_tasks.empty()) {
             return false;
         }
-        while (proceed()) {
+        while (proceed(scheduler)) {
         }
         return true;
     }
@@ -230,11 +228,6 @@ public:
      */
     const std::vector<task_info> &tasks() const { return m_tasks; };
 
-    [[deprecated]] shared<scheduler> __scheduler()
-    {
-        return m_scheduler;
-    }
-
 protected:
     /**
      * @brief log - print logs
@@ -252,7 +245,6 @@ protected:
     }
 
 private:
-    shared<scheduler> m_scheduler;
     function<void(shared<default_dispatcher>&&)> m_enter_coro_context;
     function<void(shared<default_dispatcher>&&)> m_leave_coro_context;
     std::size_t m_i = 0;

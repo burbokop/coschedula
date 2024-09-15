@@ -33,12 +33,11 @@ struct async_impl
             std::launch::async,
             [scheduler = dispatcher_selector<D>::current_scheduler(), f = std::move(f)](Args&&... args) mutable -> T {
                 shared<D> dispatcher = std::make_shared<D>(
-                    std::move(scheduler),
-                    dispatcher_selector<D>::enter_coro_context,
-                    dispatcher_selector<D>::leave_coro_context);
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-                auto task = dispatcher_selector<D>::bind(copy(dispatcher), std::move(f), std::forward<Args>(args)...);
-                while (dispatcher->proceed()) {
+                auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
+                while (dispatcher->proceed(*scheduler)) {
                     std::this_thread::yield();
                 }
                 if constexpr (!std::is_same_v<T, void>) {
