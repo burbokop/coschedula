@@ -24,7 +24,7 @@ void num_of_tasks(benchmark::State &state)
         benchmark::DoNotOptimize(runners::block_on([&state, &task_coro]() -> task<std::size_t> {
             std::vector<::coschedula::task<std::size_t>> tasks;
             tasks.reserve(state.range(0));
-            for (std::size_t i = 0; i < state.range(0); ++i) {
+            for (std::int64_t i = 0; i < state.range(0); ++i) {
                 tasks.push_back(task_coro());
             }
 
@@ -54,7 +54,7 @@ void num_of_tasks_async(benchmark::State &state)
         benchmark::DoNotOptimize(runners::block_on([&state, &task_coro]() -> task<std::size_t> {
             std::vector<::coschedula::task<std::size_t>> tasks;
             tasks.reserve(state.range(0));
-            for (std::size_t i = 0; i < state.range(0); ++i) {
+            for (std::int64_t i = 0; i < state.range(0); ++i) {
                 tasks.push_back(task_coro());
             }
 

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include <cassert>
+#include <optional>
+
 namespace coschedula {
 
 /**
@@ -31,6 +34,12 @@ template<typename T>
 T copy(const T &v)
 {
     return v;
+}
+
+decltype(auto) deref_assert(auto&& v)
+{
+    assert(v);
+    return *v;
 }
 
 } // namespace coschedula

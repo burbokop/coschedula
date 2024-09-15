@@ -8,12 +8,6 @@
 
 namespace coschedula {
 
-namespace tests {
-class single_thread_suite;
-class per_thread_scheduler_suite;
-class fs_suite;
-} // namespace tests
-
 namespace runners {
 struct impl;
 template<typename, std::derived_from<dispatcher>>
@@ -48,9 +42,6 @@ struct async_impl;
  */
 template<typename T = void, std::derived_from<dispatcher> D = default_dispatcher>
 class task {
-    friend tests::single_thread_suite;
-    friend tests::per_thread_scheduler_suite;
-    friend tests::fs_suite;
     friend async_impl;
     friend runners::impl;
     template<typename, std::derived_from<dispatcher>>
@@ -61,7 +52,7 @@ class task {
         constexpr bool await_ready() const noexcept { return false; }
         template<typename P>
         void await_suspend(std::coroutine_handle<P> h,
-                           source_location loc = source_location::current()) const noexcept
+            source_location loc = source_location::current()) const
         {
             task::add_initialy_suspended(h, loc);
         }
@@ -151,7 +142,7 @@ public:
     bool done() const { return m_handle.done(); }
 
 private:
-    static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
+    static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc)
     {
         dispatcher_selector<D>::add_initialy_suspended(h, loc);
     }

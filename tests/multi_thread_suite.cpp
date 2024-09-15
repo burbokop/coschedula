@@ -27,7 +27,7 @@ TEST(multi_thread_suite, two_threads)
             co_await suspend{};
         }
         ctxs[0].done = true;
-        ctxs[0].ptr = &*dispatcher_selector<default_dispatcher>::current_dispatcher();
+        ctxs[0].ptr = &**dispatcher_selector<default_dispatcher>::current_dispatcher();
         co_return;
     });
 
@@ -38,7 +38,7 @@ TEST(multi_thread_suite, two_threads)
             co_await suspend{};
         }
         ctxs[1].done = true;
-        ctxs[1].ptr = &*dispatcher_selector<default_dispatcher>::current_dispatcher();
+        ctxs[1].ptr = &**dispatcher_selector<default_dispatcher>::current_dispatcher();
         co_return;
     });
 

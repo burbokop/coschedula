@@ -125,7 +125,7 @@ public:
         return m_v;
     }
 
-    constexpr auto operator<=>(const nonull &) const = default;
+    auto operator<=>(const nonull&) const = default;
 
 private:
     T m_v;

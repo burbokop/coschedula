@@ -116,52 +116,39 @@ TEST(runners_suite, concurrent)
 
 TEST(runners_suite, concurrent_recursive)
 {
-    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0);
+    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0u);
 
     auto runner = runners::concurrent([]() -> task<std::string> {
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         co_await suspend{};
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         auto runner = runners::concurrent([]() -> task<std::string> {
-            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2);
+            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2u);
             co_await suspend{};
-            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2);
+            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2u);
             co_await suspend{};
-            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2);
+            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2u);
             co_await suspend{};
-            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2);
+            EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 2u);
             co_return "ssss";
         });
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
-
-        std::cout << "before inner proceed" << std::endl;
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         runner.proceed();
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
-        std::cout << "after inner proceed" << std::endl;
-
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         co_await suspend{};
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
-        std::cout << "before inner wait" << std::endl;
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         auto r = std::move(runner).wait();
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
-        std::cout << "after inner wait" << std::endl;
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         co_await suspend{};
-
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
-        std::cout << "before inner co_return" << std::endl;
-        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1);
+        EXPECT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 1u);
         co_return r;
     });
 
-    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0);
+    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0u);
     runner.proceed();
-    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0);
+    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0u);
     ASSERT_EQ(std::move(runner).wait(), "ssss");
-    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0);
+    ASSERT_EQ(dispatcher_selector<default_dispatcher>::stack_depth(), 0u);
 }
 
 } // namespace coschedula::tests

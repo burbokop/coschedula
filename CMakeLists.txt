@@ -12,6 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_STATIC_BUILD "Build as static library" OFF)
 option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_PEDANTIC_DIAGNOSTIC
+       "Enable all compiler warnings. Treat warnings as errors" ON)
 
 if(MSVC)
     option(ENABLE_BENCHMARKS "Enable benchmarks (TODO: fix for msvc)" OFF)
@@ -37,12 +39,19 @@ else()
     add_library(${PROJECT_NAME} SHARED)
 endif()
 
-if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR (CMAKE_CXX_COMPILER_ID STREQUAL
-                                                "GNU"))
-    target_compile_options(
-        ${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror
-                                -Wno-error=deprecated)
-endif()
+function(target_pedantic_diagnostic TARGET)
+    if(ENABLE_PEDANTIC_DIAGNOSTIC)
+        if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR (CMAKE_CXX_COMPILER_ID
+                                                        STREQUAL "GNU"))
+            target_compile_options(
+                ${TARGET}
+                PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=deprecated
+                        -Wno-error=deprecated-declarations)
+        endif()
+    endif()
+endfunction()
+
+target_pedantic_diagnostic(${PROJECT_NAME})
 
 add_subdirectory(src)
 

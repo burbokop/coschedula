@@ -22,6 +22,16 @@ class suspend;
 template<typename, std::derived_from<dispatcher>>
 class task;
 
+class coroutine_outside_of_context : std::exception {
+public:
+    // exception interface
+public:
+    const char* what() const noexcept override
+    {
+        return "Coroutine is called outside of runner's context";
+    }
+};
+
 /**
  * @brief The scheduler_selector class - selects current active scheduler
  * @threadsafe
@@ -41,21 +51,37 @@ private:
     struct stack_frame
     {
         shared<D> dispatcher;
-        shared<scheduler> sch;
+        shared<scheduler> sched;
     };
 
 public:
-    static shared<const D> current_dispatcher()
+    /**
+     * @brief current_dispatcher
+     * @return nullopt if outside of runner context
+     */
+    [[nodiscard]] static std::optional<shared<const D>> current_dispatcher() noexcept
     {
-        return stack_frame().dispatcher;
+        if (s_stack.empty()) {
+            return std::nullopt;
+        } else {
+            return stack_frame().dispatcher;
+        }
     }
 
-    static shared<scheduler> current_scheduler()
+    /**
+     * @brief current_scheduler
+     * @return nullopt if outside of runner context
+     */
+    [[nodiscard]] static std::optional<shared<scheduler>> current_scheduler() noexcept
     {
-        return stack_frame().sch;
+        if (s_stack.empty()) {
+            return std::nullopt;
+        } else {
+            return stack_frame().sched;
+        }
     }
 
-    static std::size_t stack_depth() { return s_stack.size(); }
+    [[nodiscard]] static std::size_t stack_depth() noexcept { return s_stack.size(); }
 
 private:
     dispatcher_selector() = delete;
@@ -67,13 +93,13 @@ private:
     }
 
     template<typename... Args>
-    static decltype(auto) bind(shared<D>&& dispatcher, shared<scheduler>&&, Args&&... args)
+    static decltype(auto) bind(shared<D>&& dispatcher, shared<scheduler>&&, Args&&... args) noexcept
     {
         push_runner(std::move(dispatcher));
         return std::invoke(std::forward<Args>(args)...);
     }
 
-    static void push_runner(shared<D>&& dispatcher)
+    static void push_runner(shared<D>&& dispatcher) noexcept
     {
         assert(!s_next);
         s_next = dispatcher;
@@ -89,7 +115,7 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void enter_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler)
+    static void enter_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler) noexcept
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
@@ -104,13 +130,13 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void leave_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler)
+    static void leave_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler) noexcept
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
 
         assert(stack_frame().dispatcher == dispatcher);
-        assert(stack_frame().sch == scheduler);
+        assert(stack_frame().sched == scheduler);
         s_stack.pop();
 
         const auto size_after = s_stack.size();
@@ -121,7 +147,7 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void pop_runner()
+    static void pop_runner() noexcept
     {
         const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
@@ -134,17 +160,19 @@ private:
                   << ptr_after << ")" << std::endl;
     }
 
-    static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
+    static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc)
     {
         if (s_next) {
-            // if root task of this sheduler
+            /// if root task
             assert((*s_next)->tasks().empty());
             (*s_next)->add_initialy_suspended(h, loc);
             s_next.reset();
-        } else {
-            // if inner task of this sheduler
+        } else if (!s_stack.empty()) {
+            /// if subtask
             assert(!stack_frame().dispatcher->tasks().empty());
             stack_frame().dispatcher->add_initialy_suspended(h, loc);
+        } else {
+            throw coroutine_outside_of_context();
         }
 
         const auto size_before = s_stack.size();
@@ -194,7 +222,7 @@ private:
     //     return registry(std::this_thread::get_id())->proceed();
     // }
 
-    static struct stack_frame& stack_frame()
+    static struct stack_frame& stack_frame() noexcept
     {
         assert(!s_stack.empty());
         return s_stack.top();

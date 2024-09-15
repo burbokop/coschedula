@@ -175,4 +175,39 @@ TEST(single_thread_suite, two_dep)
     ASSERT_TRUE(dep1_done_after_await);
 }
 
+TEST(single_thread_suite, create_coro_outside_of_runner)
+{
+    bool entered = false;
+
+    const auto coro = [&entered]() -> task<void> {
+        entered = true;
+        co_return;
+    };
+
+    ASSERT_THROW(coro(), coroutine_outside_of_context);
+    ASSERT_FALSE(entered);
+}
+
+TEST(single_thread_suite, current_dispatcher)
+{
+    bool dispatcher_exists_inside = false;
+    runners::block_on([&dispatcher_exists_inside]() -> task<void> {
+        dispatcher_exists_inside = dispatcher_selector<default_dispatcher>::current_dispatcher().has_value();
+        co_return;
+    });
+    ASSERT_TRUE(dispatcher_exists_inside);
+    ASSERT_FALSE(dispatcher_selector<default_dispatcher>::current_dispatcher());
+}
+
+TEST(single_thread_suite, current_scheduler)
+{
+    bool scheduler_exists_inside = false;
+    runners::block_on([&scheduler_exists_inside]() -> task<void> {
+        scheduler_exists_inside = dispatcher_selector<default_dispatcher>::current_scheduler().has_value();
+        co_return;
+    });
+    ASSERT_TRUE(scheduler_exists_inside);
+    ASSERT_FALSE(dispatcher_selector<default_dispatcher>::current_scheduler());
+}
+
 } // namespace coschedula::tests

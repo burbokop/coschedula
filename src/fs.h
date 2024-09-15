@@ -102,7 +102,7 @@ template<typename C = std::string::value_type,
         }
         co_return result;
     } else {
-        static_assert(exec != exec, "unknown execution");
+        static_assert(false, "unknown execution");
     }
 }
 

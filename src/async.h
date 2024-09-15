@@ -3,6 +3,7 @@
 #pragma once
 
 #include "task.h"
+#include "utils.h"
 #include <future>
 
 namespace coschedula {
@@ -31,7 +32,7 @@ struct async_impl
     {
         auto future = std::async(
             std::launch::async,
-            [scheduler = dispatcher_selector<D>::current_scheduler(), f = std::move(f)](Args&&... args) mutable -> T {
+            [scheduler = deref_assert(dispatcher_selector<D>::current_scheduler()), f = std::move(f)](Args&&... args) mutable -> T {
                 shared<D> dispatcher = std::make_shared<D>(
                     [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
                     [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
