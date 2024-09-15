@@ -19,8 +19,7 @@ struct impl
         }
     {
         return std::thread([f = std::move(f)] {
-            const shared<R> rt = std::make_shared<R>(function<void(shared<R> &&)>(
-                [](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+            const shared<R> rt = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
 
             runner_guard<S, R> g(rt);
             auto task = f();
@@ -39,8 +38,7 @@ struct impl
         return std::async(
             std::launch::async,
             [f = std::move(f)](Args &&...args) {
-                shared<R> r = std::make_shared<R>(function<void(shared<R> &&)>(
-                    [](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+                shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
                 runner_guard<S, R> g(r);
                 auto task = f(std::forward<Args>(args)...);
                 while (r->proceed()) {
@@ -60,8 +58,7 @@ struct impl
             { f(std::forward<Args>(args)...) } -> std::same_as<task<T, S>>;
         }
     {
-        shared<R> r = std::make_shared<R>(
-            function<void(shared<R> &&)>([](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+        shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
         runner_guard<S, R> g(r);
         auto task = f(std::forward<Args>(args)...);
         while (r->proceed()) {
@@ -203,8 +200,7 @@ auto concurrent(F &&f, Args &&...args)
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
-    shared<R> r = std::make_shared<R>(
-        function<void(shared<R> &&)>([](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+    shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
     runner_guard<S, R> g(r);
     return concurrent_runner(std::move(r), std::move(g), f(std::forward<Args>(args)...));
 }

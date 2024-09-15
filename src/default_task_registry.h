@@ -24,8 +24,10 @@ class default_task_registry : public task_registry,
                               public std::enable_shared_from_this<default_task_registry>
 {
 public:
-    default_task_registry(function<void(shared<default_task_registry> &&)> &&about_to_resume)
-        : m_about_to_resume(std::move(about_to_resume))
+    default_task_registry(function<void(shared<default_task_registry> &&)> &&enter_coro_context,
+                          function<void(shared<default_task_registry> &&)> &&leave_coro_context)
+        : m_enter_coro_context(std::move(enter_coro_context))
+        , m_leave_coro_context(std::move(leave_coro_context))
     {}
 
     default_task_registry(const default_task_registry &) = delete;
@@ -97,8 +99,9 @@ public:
             for (const auto &s : m_subscribers) {
                 s->task_resumed(m_tasks[i]);
             }
-            m_about_to_resume(shared_from_this());
+            m_enter_coro_context(shared_from_this());
             m_tasks[i].h.resume();
+            m_leave_coro_context(shared_from_this());
             return true;
         }
         return false;
@@ -256,7 +259,8 @@ protected:
     }
 
 private:
-    function<void(shared<default_task_registry> &&)> m_about_to_resume;
+    function<void(shared<default_task_registry> &&)> m_enter_coro_context;
+    function<void(shared<default_task_registry> &&)> m_leave_coro_context;
     std::size_t m_i = 0;
     std::vector<task_info> m_tasks;
     logger m_logger;

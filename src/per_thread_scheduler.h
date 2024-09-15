@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <stack>
 #include <thread>
 
@@ -19,71 +20,100 @@ namespace coschedula {
 template<std::derived_from<task_registry> R>
 class per_thread_scheduler
 {
+    struct stack_frame
+    {
+        shared<R> registry;
+        bool root_task_initiated;
+    };
+
 public:
     per_thread_scheduler() = delete;
 
     static void *ptr()
     {
-        return (s_registries[std::this_thread::get_id()].empty()
-                    ? reinterpret_cast<void *>(0)
-                    : reinterpret_cast<void *>(&*registry()));
+        return (s_stack.empty() ? reinterpret_cast<void *>(0)
+                                : reinterpret_cast<void *>(&*stack_frame().registry));
     }
 
-    static void push_runner(shared<R> &&runner)
-    {
-        std::lock_guard g(s_mutex);
+    static void *stack_ptr() { return &s_stack; }
 
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+    static void push_runner(shared<R> &&registry)
+    {
+        assert(!s_next);
+        s_next = registry;
+
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        s_registries[std::this_thread::get_id()].push(std::move(runner));
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+        // s_stack.emplace(std::move(registry), false);
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
-        std::cout << "push_runner           : " << std::dec << size_before << " (" << std::hex
+        std::cout << "start_runner           : " << std::dec << size_before << " (" << std::hex
                   << ptr_before << ") -> " << std::dec << size_after << " (" << std::hex
                   << ptr_after << ")" << std::endl;
     }
 
-    static void about_to_resume(shared<R> &&runner)
+    static void enter_coro_context(shared<R> &&registry)
     {
-        std::lock_guard g(s_mutex);
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        if (s_registries[std::this_thread::get_id()].empty()
-            || s_registries[std::this_thread::get_id()].top() != runner) {
-            s_registries[std::this_thread::get_id()].push(std::move(runner));
-        }
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+
+        s_stack.emplace(std::move(registry), false);
+
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
-        std::cout << "resume                : " << std::dec << size_before << " (" << std::hex
+        std::cout << "enter_coro_context     : " << std::dec << size_before << " (" << std::hex
+                  << ptr_before << ") -> " << std::dec << size_after << " (" << std::hex
+                  << ptr_after << ")" << std::endl;
+    }
+
+    static void leave_coro_context(shared<R> &&registry)
+    {
+        const auto size_before = s_stack.size();
+        const auto ptr_before = ptr();
+
+        assert(stack_frame().registry == registry);
+        s_stack.pop();
+
+        const auto size_after = s_stack.size();
+        const auto ptr_after = ptr();
+
+        std::cout << "leave_coro_context     : " << std::dec << size_before << " (" << std::hex
                   << ptr_before << ") -> " << std::dec << size_after << " (" << std::hex
                   << ptr_after << ")" << std::endl;
     }
 
     static void pop_runner()
     {
-        std::lock_guard g(s_mutex);
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        s_registries[std::this_thread::get_id()].pop();
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+        // s_stack.pop();
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
-        std::cout << "pop_runner            : " << std::dec << size_before << " (" << std::hex
+        std::cout << "end_runner            : " << std::dec << size_before << " (" << std::hex
                   << ptr_before << ") -> " << std::dec << size_after << " (" << std::hex
                   << ptr_after << ")" << std::endl;
     }
 
     static void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept
     {
-        std::lock_guard g(s_mutex);
-        registry(std::this_thread::get_id())->add_initialy_suspended(h, loc);
+        if (s_next) {
+            // if root task of this sheduler
+            assert((*s_next)->tasks().empty());
+            (*s_next)->add_initialy_suspended(h, loc);
+            s_next.reset();
+        } else {
+            // if inner task of this sheduler
+            assert(!stack_frame().registry->tasks().empty());
+            stack_frame().registry->add_initialy_suspended(h, loc);
+        }
 
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        // s_registries[std::this_thread::get_id()].pop();
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+        // stack_frame().root_task_initiated = true;
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
         std::cout << "add_initialy_suspended: " << std::dec << size_before << " (" << std::hex
@@ -93,13 +123,12 @@ public:
 
     static void suspend(std::coroutine_handle<> h) noexcept
     {
-        std::lock_guard g(s_mutex);
-        registry(std::this_thread::get_id())->suspend(h);
+        stack_frame().registry->suspend(h);
 
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        s_registries[std::this_thread::get_id()].pop();
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+        // s_stack.pop();
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
         std::cout << "suspend                : " << std::dec << size_before << " (" << std::hex
@@ -109,13 +138,12 @@ public:
 
     static void await_suspend(std::coroutine_handle<> current, std::coroutine_handle<> dep) noexcept
     {
-        std::lock_guard g(s_mutex);
-        registry(std::this_thread::get_id())->await_suspend(current, dep);
+        stack_frame().registry->await_suspend(current, dep);
 
-        const auto size_before = s_registries[std::this_thread::get_id()].size();
+        const auto size_before = s_stack.size();
         const auto ptr_before = ptr();
-        s_registries[std::this_thread::get_id()].pop();
-        const auto size_after = s_registries[std::this_thread::get_id()].size();
+        // s_stack.pop();
+        const auto size_after = s_stack.size();
         const auto ptr_after = ptr();
 
         std::cout << "await_suspend           : " << std::dec << size_before << " (" << std::hex
@@ -123,7 +151,7 @@ public:
                   << ptr_after << ")" << std::endl;
     }
 
-    static std::size_t stack_pos() { return s_registries[std::this_thread::get_id()].size(); }
+    static std::size_t stack_pos() { return s_stack.size(); }
 
     // static bool proceed()
     // {
@@ -131,20 +159,16 @@ public:
     //     return registry(std::this_thread::get_id())->proceed();
     // }
 
-    static const shared<R> &registry() { return registry(std::this_thread::get_id()); }
-
 private:
-    static const shared<R> &registry(std::thread::id id)
+    static struct stack_frame &stack_frame()
     {
-        std::lock_guard g(s_mutex);
-        auto &stack = s_registries[id];
-        assert(!stack.empty());
-        return stack.top();
+        assert(!s_stack.empty());
+        return s_stack.top();
     }
 
 private:
-    inline static std::recursive_mutex s_mutex;
-    inline static std::map<std::thread::id, std::stack<shared<R>>> s_registries;
+    inline static thread_local std::optional<shared<R>> s_next;
+    inline static thread_local std::stack<struct stack_frame> s_stack;
 };
 
 } // namespace coschedula

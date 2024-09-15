@@ -13,6 +13,8 @@ TEST(multi_thread_suite, two_threads)
 
     struct ctx
     {
+        void *ptr = nullptr;
+        void *stack_ptr = nullptr;
         std::atomic_bool entered = false;
         std::atomic_bool done = false;
     };
@@ -26,6 +28,8 @@ TEST(multi_thread_suite, two_threads)
             co_await suspend{};
         }
         ctxs[0].done = true;
+        ctxs[0].ptr = default_scheduler::ptr();
+        ctxs[0].stack_ptr = default_scheduler::stack_ptr();
         co_return;
     });
 
@@ -36,6 +40,8 @@ TEST(multi_thread_suite, two_threads)
             co_await suspend{};
         }
         ctxs[1].done = true;
+        ctxs[1].ptr = default_scheduler::ptr();
+        ctxs[1].stack_ptr = default_scheduler::stack_ptr();
         co_return;
     });
 
@@ -45,6 +51,8 @@ TEST(multi_thread_suite, two_threads)
     ASSERT_TRUE(ctxs[1].entered);
     ASSERT_TRUE(ctxs[0].done);
     ASSERT_TRUE(ctxs[1].done);
+    ASSERT_NE(ctxs[0].ptr, ctxs[1].ptr);
+    ASSERT_NE(ctxs[0].stack_ptr, ctxs[1].stack_ptr);
 }
 
 } // namespace coschedula::tests

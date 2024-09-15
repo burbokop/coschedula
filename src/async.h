@@ -32,8 +32,7 @@ struct async_impl
         auto future = std::async(
             std::launch::async,
             [f = std::move(f)](Args &&...args) -> T {
-                shared<R> r = std::make_shared<R>(function<void(shared<R> &&)>(
-                    [](shared<R> &&r) { S::about_to_resume(std::move(r)); }));
+                shared<R> r = std::make_shared<R>(S::enter_coro_context, S::leave_coro_context);
                 runner_guard<S, R> g(r);
                 auto task = f(std::forward<Args>(args)...);
                 while (r->proceed()) {

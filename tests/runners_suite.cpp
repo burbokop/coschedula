@@ -116,32 +116,52 @@ TEST(runners_suite, concurrent)
 
 TEST(runners_suite, concurrent_recursive)
 {
+    ASSERT_EQ(default_scheduler::stack_pos(), 0);
+
     auto runner = runners::concurrent([]() -> task<std::string> {
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         co_await suspend{};
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         auto runner = runners::concurrent([]() -> task<std::string> {
+            EXPECT_EQ(default_scheduler::stack_pos(), 2);
             co_await suspend{};
+            EXPECT_EQ(default_scheduler::stack_pos(), 2);
             co_await suspend{};
+            EXPECT_EQ(default_scheduler::stack_pos(), 2);
             co_await suspend{};
+            EXPECT_EQ(default_scheduler::stack_pos(), 2);
             co_return "ssss";
         });
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
 
         std::cout << "before inner proceed" << std::endl;
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         runner.proceed();
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         std::cout << "after inner proceed" << std::endl;
 
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         co_await suspend{};
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         std::cout << "before inner wait" << std::endl;
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         auto r = std::move(runner).wait();
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         std::cout << "after inner wait" << std::endl;
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         co_await suspend{};
 
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         std::cout << "before inner co_return" << std::endl;
+        EXPECT_EQ(default_scheduler::stack_pos(), 1);
         co_return r;
     });
 
+    ASSERT_EQ(default_scheduler::stack_pos(), 0);
     runner.proceed();
-
+    ASSERT_EQ(default_scheduler::stack_pos(), 0);
     ASSERT_EQ(std::move(runner).wait(), "ssss");
+    ASSERT_EQ(default_scheduler::stack_pos(), 0);
 }
 
 } // namespace coschedula::tests
