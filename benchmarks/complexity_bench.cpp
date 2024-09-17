@@ -1,9 +1,7 @@
 // Copyright 2023 Borys Boiko
 
-#include "../src/global_scheduler.h"
+#include "../src/runners.h"
 #include "../src/task.h"
-#include "../src/utils.h"
-#include "random_gen.h"
 #include <benchmark/benchmark.h>
 
 namespace coschedula::benchmarks::complexity {
@@ -12,10 +10,7 @@ namespace {
 
 void num_of_tasks(benchmark::State &state)
 {
-    struct s : default_task_registry
-    {};
-
-    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, global_scheduler<s>> {
+    const auto &&task_coro = []() -> ::coschedula::task<std::size_t> {
         std::size_t sum = 0;
         for (std::size_t i = 0; i < 256; ++i) {
             sum += 1;
@@ -25,23 +20,26 @@ void num_of_tasks(benchmark::State &state)
 
     for (auto _ : state) {
         (void) _;
-        std::vector<::coschedula::task<std::size_t, global_scheduler<s>>> tasks;
-        tasks.reserve(state.range(0));
-        for (std::size_t i = 0; i < state.range(0); ++i) {
-            tasks.push_back(task_coro());
-        }
+        benchmark::DoNotOptimize(runners::block_on([&state, &task_coro]() -> task<std::size_t> {
+            std::vector<::coschedula::task<std::size_t>> tasks;
+            tasks.reserve(state.range(0));
+            for (std::int64_t i = 0; i < state.range(0); ++i) {
+                tasks.push_back(task_coro());
+            }
 
-        proceed_until_empty<global_scheduler<s>>();
+            std::size_t r = 0;
+            for (const auto &t : tasks) {
+                r += co_await t;
+            }
+            co_return r;
+        }));
     }
     state.SetComplexityN(state.range(0));
 }
 
 void num_of_tasks_async(benchmark::State &state)
 {
-    struct s : default_task_registry
-    {};
-
-    const auto &&task_coro = []() -> ::coschedula::task<std::size_t, global_scheduler<s>> {
+    const auto &&task_coro = []() -> ::coschedula::task<std::size_t> {
         std::size_t sum = 0;
         for (std::size_t i = 0; i < 256; ++i) {
             sum += 1;
@@ -52,13 +50,19 @@ void num_of_tasks_async(benchmark::State &state)
 
     for (auto _ : state) {
         (void) _;
-        std::vector<::coschedula::task<std::size_t, global_scheduler<s>>> tasks;
-        tasks.reserve(state.range(0));
-        for (std::size_t i = 0; i < state.range(0); ++i) {
-            tasks.push_back(task_coro());
-        }
+        benchmark::DoNotOptimize(runners::block_on([&state, &task_coro]() -> task<std::size_t> {
+            std::vector<::coschedula::task<std::size_t>> tasks;
+            tasks.reserve(state.range(0));
+            for (std::int64_t i = 0; i < state.range(0); ++i) {
+                tasks.push_back(task_coro());
+            }
 
-        proceed_until_empty<global_scheduler<s>>();
+            std::size_t r = 0;
+            for (const auto &t : tasks) {
+                r += co_await t;
+            }
+            co_return r;
+        }));
     }
     state.SetComplexityN(state.range(0));
 }

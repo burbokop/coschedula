@@ -3,6 +3,7 @@
 #pragma once
 
 #include "task.h"
+#include "utils.h"
 #include <future>
 
 namespace coschedula {
@@ -10,8 +11,8 @@ namespace coschedula {
 /// impl struct exists to be able to add it as friend to another internal components
 struct async_impl
 {
-    template<typename T, scheduler S, typename... Args>
-    static task<T, S> async(auto &&f, Args &&...args)
+    template<typename T, std::derived_from<dispatcher> D, typename... Args>
+    static task<T, D> async(auto&& f, Args&&... args)
         requires requires {
             { f(std::forward<Args>(args)...) } -> std::same_as<T>;
         }
@@ -23,17 +24,21 @@ struct async_impl
         co_return future.get();
     }
 
-    template<typename T = void, scheduler S, typename... Args>
-    static task<T, S> async(auto &&f, Args &&...args)
+    template<typename T = void, std::derived_from<dispatcher> D, typename... Args>
+    static task<T, D> async(auto&& f, Args&&... args)
         requires requires {
-            { f(std::forward<Args>(args)...) } -> std::same_as<task<T, S>>;
+            { f(std::forward<Args>(args)...) } -> std::same_as<task<T, D>>;
         }
     {
         auto future = std::async(
             std::launch::async,
-            [f = std::move(f)](Args &&...args) -> T {
-                auto task = f(std::forward<Args>(args)...);
-                while (S::proceed()) {
+            [scheduler = deref_assert(dispatcher_selector<D>::current_scheduler()), f = std::move(f)](Args&&... args) mutable -> T {
+                shared<D> dispatcher = std::make_shared<D>(
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+                auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
+                while (dispatcher->proceed(*scheduler)) {
                     std::this_thread::yield();
                 }
                 if constexpr (!std::is_same_v<T, void>) {
@@ -55,33 +60,34 @@ struct async_impl
  * @param args - args passed to `f`
  * @return result of `f`
  */
-template<scheduler S = default_scheduler, typename F, typename... Args>
-auto async(F &&f, Args &&...args) -> task<decltype(f(std::forward<Args>(args)...)), S>
+template<std::derived_from<dispatcher> D = default_dispatcher, typename F, typename... Args>
+auto async(F&& f, Args&&... args) -> task<decltype(f(std::forward<Args>(args)...)), D>
     requires requires {
         {
             f(std::forward<Args>(args)...)
         } -> std::convertible_to<decltype(f(std::forward<Args>(args)...))>;
-    } && (!task_with_scheduler<decltype(f(std::forward<Args>(args)...)), S>)
+    } && (!task_with_scheduler<decltype(f(std::forward<Args>(args)...)), D>)
 {
-    return async_impl::async<decltype(f(std::forward<Args>(args)...)), S, Args...>(std::move(f),
-                                                                                   std::forward<Args>(
-                                                                                       args)...);
+
+    return async_impl::async<decltype(f(std::forward<Args>(args)...)), D, Args...>(
+        std::forward<F>(f),
+        std::forward<Args>(args)...);
 }
 
 /**
  * @brief create thread and runs seperate scheduler in it and current coroutine awaits it
  */
-template<scheduler S = default_scheduler, typename F, typename... Args>
-auto async(F &&f,
-           Args &&...args) -> task<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>
+template<std::derived_from<dispatcher> D = default_dispatcher, typename F, typename... Args>
+auto async(F&& f, Args&&... args) -> task<result_type<decltype(f(std::forward<Args>(args)...)), D>, D>
     requires requires {
         {
             f(std::forward<Args>(args)...)
-        } -> std::same_as<task<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>>;
+        } -> std::same_as<task<result_type<decltype(f(std::forward<Args>(args)...)), D>, D>>;
     }
 {
-    return async_impl::async<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
-        std::move(f), std::forward<Args>(args)...);
+    return async_impl::async<result_type<decltype(f(std::forward<Args>(args)...)), D>, D, Args...>(
+        std::forward<F>(f),
+        std::forward<Args>(args)...);
 }
 
 } // namespace coschedula

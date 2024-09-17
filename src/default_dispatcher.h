@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "nonull.h"
 #include "scheduler.h"
 #include <cassert>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -19,30 +21,22 @@ concept stream_printer = requires(T v, std::ostream &s) { v(s); };
  * @brief The default_task_registry class - holds tasks info and manages it by round robin algorithm
  * @note default_task_registry::next can be overrided to use another algorithm of choosing next task to resume
  */
-class default_task_registry : public task_registry
-{
+class default_dispatcher : public dispatcher,
+                           public std::enable_shared_from_this<default_dispatcher> {
 public:
-    default_task_registry() = default;
-    default_task_registry(const default_task_registry &) = delete;
-    default_task_registry(default_task_registry &&) = delete;
+    default_dispatcher(
+        function<void(shared<default_dispatcher>&&)>&& enter_coro_context,
+        function<void(shared<default_dispatcher>&&)>&& leave_coro_context)
+        : m_enter_coro_context(std::move(enter_coro_context))
+        , m_leave_coro_context(std::move(leave_coro_context))
+    {}
+
+    default_dispatcher(const default_dispatcher&) = delete;
+    default_dispatcher(default_dispatcher&&) = delete;
 
     using logger = std::function<void(source_location loc, const std::string &)>;
 
-    struct factory
-    {
-        default_task_registry create() { return {}; }
-    };
-
-    struct task_info
-    {
-        std::coroutine_handle<> h;
-        bool suspended;
-        source_location loc;
-        std::optional<std::coroutine_handle<>> dep;
-    };
-
-    class subscriber
-    {
+    class subscriber {
     public:
         subscriber() = default;
         virtual ~subscriber() = default;
@@ -74,6 +68,7 @@ public:
         if (auto i = indexOf(h)) {
             const auto ok = mark_suspended(*i);
             assert(ok);
+            static_cast<void>(ok);
         }
     }
 
@@ -83,6 +78,7 @@ public:
         if (auto i = indexOf(current)) {
             const auto ok = mark_suspended(*i, dep);
             assert(ok);
+            static_cast<void>(ok);
         }
     }
 
@@ -97,7 +93,9 @@ public:
             for (const auto &s : m_subscribers) {
                 s->task_resumed(m_tasks[i]);
             }
+            m_enter_coro_context(shared_from_this());
             m_tasks[i].h.resume();
+            m_leave_coro_context(shared_from_this());
             return true;
         }
         return false;
@@ -179,9 +177,9 @@ public:
      * while(scheduler::instance<scheduler>::proceed()){}
      * ```
      * or in some timer if using with some frameworks
-     * @return true if all tasks completed
+     * @return true if still has some work to do 
      */
-    bool proceed() noexcept override
+    bool proceed(scheduler& scheduler) noexcept override
     {
         if (m_tasks.empty()) {
             m_i = 0;
@@ -189,12 +187,16 @@ public:
         }
 
         if (remove_if_done(m_i)) {
+            if (m_tasks.empty()) {
+                m_i = 0;
+                return false;
+            }
             return true;
         }
 
         resume(m_i);
 
-        m_i = next(m_i);
+        m_i = scheduler.select(m_i, m_tasks);
         return true;
     }
 
@@ -202,12 +204,12 @@ public:
      * @brief proceed_until_empty - block current thread untill all tasks done
      * @return true if any task was executed
      */
-    bool proceed_until_empty()
+    [[deprecated("Use runners::concurent instead")]] bool proceed_until_empty(scheduler& scheduler)
     {
         if (m_tasks.empty()) {
             return false;
         }
-        while (proceed()) {
+        while (proceed(scheduler)) {
         }
         return true;
     }
@@ -229,13 +231,6 @@ public:
 
 protected:
     /**
-     * @brief next - calculate next task to give control
-     * @param current - current running task
-     * @note override if you want to specify another scheduling rule
-     */
-    virtual std::size_t next(std::size_t current) { return (current + 1) % m_tasks.size(); }
-
-    /**
      * @brief log - print logs
      * @param printer - stream printer functor `(std::stream&) -> std::stream&`
      * @param loc - code location
@@ -251,6 +246,8 @@ protected:
     }
 
 private:
+    function<void(shared<default_dispatcher>&&)> m_enter_coro_context;
+    function<void(shared<default_dispatcher>&&)> m_leave_coro_context;
     std::size_t m_i = 0;
     std::vector<task_info> m_tasks;
     logger m_logger;

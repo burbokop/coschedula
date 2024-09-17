@@ -36,7 +36,7 @@ TEST(async_suite, non_coro_context_lambda)
 {
     const auto res = runners::block_on([]() -> task<int> {
         const int z = 4;
-        co_return co_await coschedula::async([z](int x, int y) { return x + y + z; }, 1, 2);
+        co_return co_await coschedula::async([](int x, int y) { return x + y + z; }, 1, 2);
     });
     ASSERT_EQ(res, 7);
 }
@@ -45,9 +45,7 @@ TEST(async_suite, coro_context_lambda)
 {
     const auto res = runners::block_on([]() -> task<int> {
         const int z = 4;
-        co_return co_await coschedula::async([z](int x, int y) -> task<int> { co_return x + y + z; },
-                                             1,
-                                             2);
+        co_return co_await coschedula::async([](int x, int y) -> task<int> { co_return x + y + z; }, 1, 2);
     });
     ASSERT_EQ(res, 7);
 }

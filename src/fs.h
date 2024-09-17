@@ -56,9 +56,9 @@ private:
  * @return file as std::string with char `C`
  */
 template<typename C = std::string::value_type,
-         execution exec = execution::seq,
-         scheduler S = default_scheduler>
-[[nodiscard]] task<expected<std::basic_string<C>, error>, S> read(const std::filesystem::path path)
+    execution exec = execution::seq,
+    std::derived_from<dispatcher> D = default_dispatcher>
+[[nodiscard]] task<expected<std::basic_string<C>, error>, D> read(const std::filesystem::path path)
 {
     if constexpr (exec == execution::par) {
         std::atomic_bool done = false;
@@ -102,12 +102,12 @@ template<typename C = std::string::value_type,
         }
         co_return result;
     } else {
-        static_assert(exec != exec, "unknown execution");
+        []<bool flag = false>() { static_assert(flag, "Unknown execution"); }();
     }
 }
 
-template<scheduler S = default_scheduler, std::ranges::range R>
-[[nodiscard]] task<expected<void, error>, S> write(const std::filesystem::path path, R &&range)
+template<std::derived_from<dispatcher> D = default_dispatcher, std::ranges::range R>
+[[nodiscard]] task<expected<void, error>, D> write(const std::filesystem::path path, R&& range)
     requires(std::is_same_v<std::ranges::range_value_t<R>, std::byte>)
 {
     std::ofstream stream(path, std::ios::binary);
@@ -124,8 +124,8 @@ template<scheduler S = default_scheduler, std::ranges::range R>
     co_return {};
 }
 
-template<scheduler S = default_scheduler, std::ranges::range R>
-[[nodiscard]] task<expected<void, std::string>, S> write(const std::filesystem::path path, R &&range)
+template<std::derived_from<dispatcher> D = default_dispatcher, std::ranges::range R>
+[[nodiscard]] task<expected<void, std::string>, D> write(const std::filesystem::path path, R&& range)
     requires(std::is_same_v<std::ranges::range_value_t<R>, char>)
 {
     std::ofstream stream(path);

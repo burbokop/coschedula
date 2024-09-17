@@ -2,20 +2,43 @@
 
 #pragma once
 
-#include "default_scheduler.h"
-#include <thread>
+#include <cassert>
 
 namespace coschedula {
 
-template<scheduler S = default_scheduler>
-bool proceed_until_empty()
+/**
+ * @brief copy
+ * Example:
+ * ```
+ * foo(T&&);
+ * 
+ * bar0(const T& v) {
+ *     foo(v) // compilation error
+ * }
+ *
+ * bar1(const T& v) {
+ *     auto c = v;
+ *     foo(std::move(c)) // may produce unoptimized bytecode (and also ugly)
+ * }
+ * 
+ * bar2(const T& v) {
+ *     foo(copy(v)) // OK
+ * }
+ * ```
+ */
+template<typename T>
+#if __cplusplus >= 202302L
+[[deprecated("Use auto{} instead")]]
+#endif
+T copy(const T &v)
 {
-    bool any_done = false;
-    while (S::proceed()) {
-        any_done = true;
-        std::this_thread::yield();
-    }
-    return any_done;
+    return v;
+}
+
+decltype(auto) deref_assert(auto&& v)
+{
+    assert(v);
+    return *v;
 }
 
 } // namespace coschedula

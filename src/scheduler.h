@@ -4,50 +4,68 @@
 
 #include "source_location.h"
 #include <coroutine>
+#include <optional>
+#include <span>
 
 namespace coschedula {
 
-/**
- * @brief The scheduler - provides scheduling mechanism for all task related to it
- * @note does not contain actual information about tasks. this functionality is delegated to `coschedula::task_registry`
- */
-template<typename T>
-concept scheduler = requires(std::coroutine_handle<> handle,
-                             std::coroutine_handle<> dep,
-                             source_location loc) {
-    {
-        T::add_initialy_suspended(handle, loc)
-    } noexcept -> std::same_as<void>;
-    {
-        T::suspend(handle)
-    } noexcept -> std::same_as<void>;
-    {
-        T::await_suspend(handle, dep)
-    } noexcept -> std::same_as<void>;
-    {
-        T::proceed()
-    } -> std::same_as<bool>;
+struct task_info
+{
+    std::coroutine_handle<> h;
+    bool suspended;
+    source_location loc;
+    std::optional<std::coroutine_handle<>> dep;
 };
 
-/**
- * @brief The task_registry class - which hold imformation about tasks
- */
-class task_registry
+class scheduler
 {
 public:
-    task_registry() = default;
-    task_registry(const task_registry &) = delete;
-    task_registry(task_registry &&) = delete;
-    task_registry &operator=(const task_registry &) = delete;
-    task_registry &operator=(task_registry &&) = delete;
+    scheduler() = default;
+    virtual ~scheduler() = default;
 
-    virtual void add_initialy_suspended(std::coroutine_handle<> handle, source_location loc) noexcept
-        = 0;
+    scheduler(const scheduler&) = delete;
+    scheduler(scheduler &&) = delete;
+    scheduler &operator=(const scheduler &) = delete;
+    scheduler &operator=(scheduler &&) = delete;
+
+    // Interface
+public:
+    virtual std::size_t select(std::size_t current, std::span<task_info>) = 0;
+};
+
+namespace schedulers {
+
+/**
+ * @brief The rr class - Round robin algorithm
+ */
+class rr : public scheduler {
+    // scheduler interface
+public:
+    virtual std::size_t select(std::size_t current, std::span<task_info> tasks) override
+    {
+        return (current + 1) % tasks.size();
+    }
+};
+
+};
+
+class dispatcher
+{
+public:
+    dispatcher() = default;
+    virtual ~dispatcher() = default;
+
+    dispatcher(const dispatcher&) = delete;
+    dispatcher(dispatcher &&) = delete;
+    dispatcher &operator=(const dispatcher &) = delete;
+    dispatcher &operator=(dispatcher &&) = delete;
+
+    // Interface
+public:
+    virtual void add_initialy_suspended(std::coroutine_handle<> handle, source_location loc) noexcept = 0;
     virtual void suspend(std::coroutine_handle<> handle) noexcept = 0;
-    virtual void await_suspend(std::coroutine_handle<> handle, std::coroutine_handle<> dep) noexcept
-        = 0;
-
-    virtual bool proceed() noexcept = 0;
+    virtual void await_suspend(std::coroutine_handle<> handle, std::coroutine_handle<> dep) noexcept = 0;
+    virtual bool proceed(scheduler&) noexcept = 0;
 };
 
 } // namespace coschedula
