@@ -11,7 +11,7 @@ namespace coschedula {
 
 namespace runners {
 struct impl;
-template<typename, std::derived_from<dispatcher>>
+template<typename, std::derived_from<dispatcher>,typename>
 class concurrent_runner;
 } // namespace runners
 
@@ -37,7 +37,7 @@ public:
  */
 template<std::derived_from<dispatcher> D>
 class dispatcher_selector {
-    template<typename, std::derived_from<dispatcher>>
+    template<typename, std::derived_from<dispatcher>, typename >
     friend class runners::concurrent_runner;
     template<typename, std::derived_from<dispatcher>>
     friend class coschedula::task;
@@ -96,7 +96,7 @@ private:
     static decltype(auto) bind(shared<D>&& dispatcher, shared<scheduler>&&, Args&&... args) noexcept
     {
         assert(!s_next);
-        s_next = dispatcher;
+        s_next = std::move(dispatcher);
         return std::invoke(std::forward<Args>(args)...);
     }
 

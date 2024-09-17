@@ -10,7 +10,7 @@ namespace coschedula {
 
 namespace runners {
 struct impl;
-template<typename, std::derived_from<dispatcher>>
+template<typename, std::derived_from<dispatcher>, typename >
 class concurrent_runner;
 } // namespace runners
 
@@ -44,7 +44,7 @@ template<typename T = void, std::derived_from<dispatcher> D = default_dispatcher
 class task {
     friend async_impl;
     friend runners::impl;
-    template<typename, std::derived_from<dispatcher>>
+    template<typename, std::derived_from<dispatcher>, typename >
     friend class runners::concurrent_runner;
 
     struct init_suspend

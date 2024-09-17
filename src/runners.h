@@ -12,18 +12,20 @@
  */
 namespace coschedula::runners {
 
-template<typename T, std::derived_from<dispatcher> D>
+template<typename T, std::derived_from<dispatcher> D, typename F>
 class concurrent_runner {
 public:
     concurrent_runner(const concurrent_runner&) = delete;
     concurrent_runner& operator=(const concurrent_runner&) = delete;
-    concurrent_runner(concurrent_runner&&) = default;
-    concurrent_runner& operator=(concurrent_runner&&) = default;
+    concurrent_runner(concurrent_runner&&) = delete;
+    concurrent_runner& operator=(concurrent_runner&&) = delete;
 
-    concurrent_runner(shared<D>&& dispatcher, shared<scheduler>&& scheduler, task<T, D>&& task)
+    template<typename ...Args>
+    concurrent_runner(shared<D>&& dispatcher, shared<scheduler>&& scheduler, F&&f, Args&& ...args)
         : m_dispatcher(std::move(dispatcher))
         , m_scheduler(std::move(scheduler))
-        , m_task(std::move(task))
+        , m_f(std::move(f))
+        , m_task(dispatcher_selector<D>::bind(copy(m_dispatcher), copy(m_scheduler), m_f, std::forward<Args>(args)...))
     {
     }
 
@@ -59,6 +61,7 @@ public:
 private:
     shared<D> m_dispatcher;
     shared<scheduler> m_scheduler;
+    F m_f;
     task<T, D> m_task;
 };
 
@@ -128,8 +131,8 @@ struct impl
         }
     }
 
-    template<typename T, std::derived_from<dispatcher> D, typename... Args>
-    static auto concurrent(shared<scheduler>&& scheduler, auto&& f, Args&&... args) -> concurrent_runner<T, D>
+    template<typename T, std::derived_from<dispatcher> D, typename F, typename... Args>
+    static auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args) -> concurrent_runner<T, D, F>
         requires requires {
             { f(std::forward<Args>(args)...) } -> task_with_scheduler<D>;
         }
@@ -138,12 +141,11 @@ struct impl
             [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
             [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
 
-        auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
-
-        return concurrent_runner<T, D>(
+        return concurrent_runner<T, D, F>(
             std::move(dispatcher),
             std::move(scheduler),
-            std::move(task));
+            std::forward<F>(f),
+            std::forward<Args>(args)...);
     }
 };
 
@@ -240,12 +242,12 @@ auto block_on(F&& f, Args&&... args) -> result_type<decltype(f(std::forward<Args
  */
 template<std::derived_from<dispatcher> S = default_dispatcher, typename F, typename... Args>
 auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args)
-    -> concurrent_runner<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>
+    -> concurrent_runner<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F>
     requires requires {
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
-    return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
+    return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F, Args...>(
         std::move(scheduler),
         std::forward<F>(f),
         std::forward<Args>(args)...);
@@ -256,12 +258,12 @@ auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args)
  */
 template<std::derived_from<dispatcher> S = default_dispatcher, typename F, typename... Args>
 auto concurrent(F&& f, Args&&... args)
-    -> concurrent_runner<result_type<decltype(f(std::forward<Args>(args)...)), S>, S>
+    -> concurrent_runner<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F>
     requires requires {
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
-    return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
+    return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F, Args...>(
         std::make_shared<schedulers::rr>(),
         std::forward<F>(f),
         std::forward<Args>(args)...);
