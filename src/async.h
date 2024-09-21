@@ -32,10 +32,16 @@ struct async_impl
     {
         auto future = std::async(
             std::launch::async,
-            [scheduler = deref_assert(dispatcher_selector<D>::current_scheduler()), f = std::move(f)](Args&&... args) mutable -> T {
+            [scheduler = deref_assert(dispatcher_selector<D>::current_scheduler()),
+                subscribers = deref_assert(dispatcher_selector<D>::current_subscribers()),
+                f = std::move(f)](Args&&... args) mutable -> T {
                 shared<D> dispatcher = std::make_shared<D>(
-                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                    [scheduler, subscribers](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler), subscribers); },
                     [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+                for (shared<subscriber> s : std::move(subscribers)) {
+                    dispatcher->install_subscriber(std::move(s));
+                }
 
                 auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
                 while (dispatcher->proceed(*scheduler)) {

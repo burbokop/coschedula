@@ -8,8 +8,8 @@ namespace coschedula::tests {
 
 task<int> sum_coro(int a, int b)
 {
-    co_await suspend{};
-    co_await suspend{};
+    co_await suspend {};
+    co_await suspend {};
     co_return a + b;
 }
 

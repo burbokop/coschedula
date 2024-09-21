@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdlib>
 
 namespace coschedula {
 
@@ -27,10 +28,10 @@ namespace coschedula {
  * ```
  */
 template<typename T>
-#if __cplusplus >= 202302L
+#if __cpp_auto_cast >= 202110L
 [[deprecated("Use auto{} instead")]]
 #endif
-T copy(const T &v)
+T copy(const T& v)
 {
     return v;
 }
@@ -39,6 +40,15 @@ decltype(auto) deref_assert(auto&& v)
 {
     assert(v);
     return *v;
+}
+
+#if __cpp_lib_unreachable >= 202202L
+[[deprecated("Use std::unreachable instead")]]
+#endif
+[[noreturn]]
+inline void unreachable()
+{
+    std::abort();
 }
 
 } // namespace coschedula

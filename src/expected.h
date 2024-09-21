@@ -10,15 +10,19 @@
 
 namespace coschedula {
 
+#ifdef __cpp_lib_expected
+#define coschedula_expected_ctor_attrs [[deprecated("Use auto{} instead")]]
+#endif
+#define coschedula_expected_ctor_attrs
+
 template<typename E>
-class unexpected
-{
+class unexpected {
 public:
-    explicit unexpected(E &&value)
+    coschedula_expected_ctor_attrs explicit unexpected(E&& value)
         : m_value(std::move(value))
     {}
 
-    explicit unexpected(const E &value)
+    coschedula_expected_ctor_attrs explicit unexpected(const E& value)
         : m_value(value)
     {}
 
@@ -33,14 +37,13 @@ template<typename E>
 unexpected(const E[]) -> unexpected<const E *>;
 
 template<typename E>
-class unexpected_exception : public std::exception
-{
+class unexpected_exception : public std::exception {
 public:
-    explicit unexpected_exception(E &&value)
+    coschedula_expected_ctor_attrs explicit unexpected_exception(E&& value)
         : m_value(std::move(value))
     {}
 
-    explicit unexpected_exception(const E &value)
+    coschedula_expected_ctor_attrs explicit unexpected_exception(const E& value)
         : m_value(value)
     {}
 
@@ -66,29 +69,29 @@ private:
 };
 
 template<typename T, typename E>
-class expected
-{
+class expected {
     using actual_stored_type = std::conditional_t<std::is_same_v<T, void>, std::monostate, T>;
 
 public:
     template<std::convertible_to<T> T0>
-    expected(T0 &&v)
+
+    coschedula_expected_ctor_attrs expected(T0&& v)
         requires(!std::is_same_v<T, void>)
         : m_data(v)
     {}
 
-    expected()
+    coschedula_expected_ctor_attrs expected()
         requires(std::is_same_v<T, void>)
-        : m_data(std::monostate{})
+        : m_data(std::monostate {})
     {}
 
     template<std::convertible_to<E> E0>
-    expected(unexpected<E0> &&u)
+    coschedula_expected_ctor_attrs expected(unexpected<E0>&& u)
         : m_data(std::move(u).release())
     {}
 
     template<std::convertible_to<E> E0>
-    expected(const unexpected<E0> &u)
+    coschedula_expected_ctor_attrs expected(const unexpected<E0>& u)
         : m_data(u.value())
     {}
 

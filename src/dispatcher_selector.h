@@ -5,6 +5,7 @@
 #include "nonull.h"
 #include "scheduler.h"
 #include <optional>
+#include <set>
 #include <stack>
 
 namespace coschedula {
@@ -51,10 +52,12 @@ private:
     {
         shared<D> dispatcher;
         shared<scheduler> sched;
+        std::set<shared<subscriber>> subscribers;
 
-        stack_frame(shared<D>&& dispatcher, shared<scheduler>&& sched)
+        stack_frame(shared<D>&& dispatcher, shared<scheduler>&& sched, const std::set<shared<subscriber>>& s)
             : dispatcher(std::move(dispatcher))
             , sched(std::move(sched))
+            , subscribers(s)
         {
         }
     };
@@ -86,6 +89,19 @@ public:
         }
     }
 
+    /**
+     * @brief current_scheduler
+     * @return nullopt if outside of runner context
+     */
+    [[nodiscard]] static std::optional<std::set<shared<subscriber>>> current_subscribers() noexcept
+    {
+        if (s_stack.empty()) {
+            return std::nullopt;
+        } else {
+            return stack_frame().subscribers;
+        }
+    }
+
     [[nodiscard]] static std::size_t stack_depth() noexcept { return s_stack.size(); }
 
 private:
@@ -101,9 +117,9 @@ private:
     }
 
     /// should be called from dispatcher
-    static void enter_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler) noexcept
+    static void enter_coro_context(shared<D>&& dispatcher, shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers) noexcept
     {
-        s_stack.emplace(std::move(dispatcher), std::move(scheduler));
+        s_stack.emplace(std::move(dispatcher), std::move(scheduler), subscribers);
     }
 
     /// should be called from dispatcher
@@ -121,11 +137,11 @@ private:
     {
         if (s_next) {
             /// if root task
-            assert((*s_next)->tasks().empty());
+            assert((*s_next)->empty());
             (*std::exchange(s_next, std::nullopt))->add_initialy_suspended(h, loc);
         } else if (!s_stack.empty()) {
             /// if subtask
-            assert(!stack_frame().dispatcher->tasks().empty());
+            assert(!stack_frame().dispatcher->empty());
             stack_frame().dispatcher->add_initialy_suspended(h, loc);
         } else {
             throw coroutine_outside_of_context();
