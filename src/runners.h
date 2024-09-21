@@ -40,7 +40,7 @@ public:
      * @return true if all task done
      * @note can be false when root task is done
      */
-    bool done() const { return m_dispatcher->tasks().empty(); }
+    bool done() const { return m_dispatcher->empty(); }
 
     /**
      * @brief wait - Block current thread until completed. Just return result if already completed
@@ -69,15 +69,19 @@ private:
 struct impl
 {
     template<std::derived_from<dispatcher> D>
-    static std::thread thread(shared<scheduler>&& scheduler, auto&& f)
+    static std::thread thread(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, auto&& f)
         requires requires {
             { f() } -> std::same_as<task<void, D>>;
         }
     {
-        return std::thread([scheduler = std::move(scheduler), f = std::move(f)]() mutable {
+        return std::thread([scheduler = std::move(scheduler), subscribers = std::move(subscribers), f = std::move(f)]() mutable {
             const shared<D> dispatcher = std::make_shared<D>(
-                [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                [scheduler, subscribers](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler), subscribers); },
                 [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+            for (shared<subscriber> s : std::move(subscribers)) {
+                dispatcher->install_subscriber(std::move(s));
+            }
 
             auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f));
             while (dispatcher->proceed(*scheduler)) {
@@ -87,17 +91,21 @@ struct impl
     }
 
     template<typename T, std::derived_from<dispatcher> D, typename... Args>
-    static std::future<T> async(shared<scheduler>&& scheduler, auto&& f, Args&&... args)
+    static std::future<T> async(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, auto&& f, Args&&... args)
         requires requires {
             { f(std::forward<Args>(args)...) } -> std::same_as<task<T, D>>;
         }
     {
         return std::async(
             std::launch::async,
-            [scheduler = std::move(scheduler), f = std::move(f)](Args&&... args) mutable {
+            [scheduler = std::move(scheduler), subscribers = std::move(subscribers), f = std::move(f)](Args&&... args) mutable {
                 const shared<D> dispatcher = std::make_shared<D>(
-                    [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+                    [scheduler, subscribers](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler), subscribers); },
                     [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+                for (shared<subscriber> s : std::move(subscribers)) {
+                    dispatcher->install_subscriber(std::move(s));
+                }
 
                 auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
                 while (dispatcher->proceed(*scheduler)) {
@@ -112,14 +120,18 @@ struct impl
     }
 
     template<typename T, std::derived_from<dispatcher> D, typename... Args>
-    static T block_on(shared<scheduler>&& scheduler, auto&& f, Args&&... args)
+    static T block_on(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, auto&& f, Args&&... args)
         requires requires {
             { f(std::forward<Args>(args)...) } -> std::same_as<task<T, D>>;
         }
     {
         const shared<D> dispatcher = std::make_shared<D>(
-            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+            [scheduler, subscribers](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler), subscribers); },
             [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+        for (shared<subscriber> s : std::move(subscribers)) {
+            dispatcher->install_subscriber(std::move(s));
+        }
 
         auto task = dispatcher_selector<D>::bind(copy(dispatcher), copy(scheduler), std::move(f), std::forward<Args>(args)...);
         while (dispatcher->proceed(*scheduler)) {
@@ -132,14 +144,18 @@ struct impl
     }
 
     template<typename T, std::derived_from<dispatcher> D, typename F, typename... Args>
-    static auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args) -> concurrent_runner<T, D, F>
+    static auto concurrent(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, F&& f, Args&&... args) -> concurrent_runner<T, D, F>
         requires requires {
             { f(std::forward<Args>(args)...) } -> task_with_scheduler<D>;
         }
     {
         shared<D> dispatcher = std::make_shared<D>(
-            [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler)); },
+            [scheduler, subscribers](shared<D>&& dispatcher) { dispatcher_selector<D>::enter_coro_context(std::move(dispatcher), copy(scheduler), subscribers); },
             [scheduler](shared<D>&& dispatcher) { dispatcher_selector<D>::leave_coro_context(std::move(dispatcher), copy(scheduler)); });
+
+        for (shared<subscriber> s : std::move(subscribers)) {
+            dispatcher->install_subscriber(std::move(s));
+        }
 
         return concurrent_runner<T, D, F>(
             std::move(dispatcher),
@@ -153,14 +169,17 @@ struct impl
  * @brief thread - run coroutine in new thread which is not compleated until all coroutines managed by its dispatcher are done
  */
 template<std::derived_from<dispatcher> D = default_dispatcher, typename F>
-std::thread thread(shared<scheduler>&& scheduler, F&& f)
+std::thread thread(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, F&& f)
     requires requires {
         {
             f()
         } -> std::same_as<task<void, D>>;
     }
 {
-    return impl::thread<D>(std::move(scheduler), std::forward<F>(f));
+    return impl::thread<D>(
+        std::move(scheduler),
+        std::move(subscribers),
+        std::forward<F>(f));
 }
 
 /**
@@ -174,20 +193,24 @@ std::thread thread(F&& f)
         } -> std::same_as<task<void, D>>;
     }
 {
-    return impl::thread<D>(std::make_shared<schedulers::rr>(), std::forward<F>(f));
+    return impl::thread<D>(
+        std::make_shared<schedulers::rr>(),
+        {},
+        std::forward<F>(f));
 }
 
 /**
  * @brief async - run coroutine in std::async which is not compleated until all coroutines managed by scheduler `S` are done
  */
 template<std::derived_from<dispatcher> S = default_dispatcher, typename F, typename... Args>
-auto async(shared<scheduler>&& scheduler, F&& f, Args&&... args) -> std::future<result_type<decltype(f(std::forward<Args>(args)...)), S>>
+auto async(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, F&& f, Args&&... args) -> std::future<result_type<decltype(f(std::forward<Args>(args)...)), S>>
     requires requires {
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
     return impl::async<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
         std::move(scheduler),
+        std::move(subscribers),
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }
@@ -203,6 +226,7 @@ auto async(F&& f, Args&&... args) -> std::future<result_type<decltype(f(std::for
 {
     return impl::async<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
         std::make_shared<schedulers::rr>(),
+        {},
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }
@@ -211,13 +235,14 @@ auto async(F&& f, Args&&... args) -> std::future<result_type<decltype(f(std::for
  * @brief block_on - run coroutine in current thread until all coroutines managed by scheduler `S` are done
  */
 template<std::derived_from<dispatcher> S = default_dispatcher, typename F, typename... Args>
-auto block_on(shared<scheduler>&& scheduler, F&& f, Args&&... args) -> result_type<decltype(f(std::forward<Args>(args)...)), S>
+auto block_on(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, F&& f, Args&&... args) -> result_type<decltype(f(std::forward<Args>(args)...)), S>
     requires requires {
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
     }
 {
     return impl::block_on<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
         std::move(scheduler),
+        std::move(subscribers),
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }
@@ -233,6 +258,7 @@ auto block_on(F&& f, Args&&... args) -> result_type<decltype(f(std::forward<Args
 {
     return impl::block_on<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, Args...>(
         std::make_shared<schedulers::rr>(),
+        {},
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }
@@ -241,7 +267,7 @@ auto block_on(F&& f, Args&&... args) -> result_type<decltype(f(std::forward<Args
  * @brief concurrent - run coroutine in current thread without blocking thread
  */
 template<std::derived_from<dispatcher> S = default_dispatcher, typename F, typename... Args>
-auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args)
+auto concurrent(shared<scheduler>&& scheduler, const std::set<shared<subscriber>>& subscribers, F&& f, Args&&... args)
     -> concurrent_runner<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F>
     requires requires {
         { f(std::forward<Args>(args)...) } -> task_with_scheduler<S>;
@@ -249,6 +275,7 @@ auto concurrent(shared<scheduler>&& scheduler, F&& f, Args&&... args)
 {
     return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F, Args...>(
         std::move(scheduler),
+        std::move(subscribers),
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }
@@ -265,6 +292,7 @@ auto concurrent(F&& f, Args&&... args)
 {
     return impl::concurrent<result_type<decltype(f(std::forward<Args>(args)...)), S>, S, F, Args...>(
         std::make_shared<schedulers::rr>(),
+        {},
         std::forward<F>(f),
         std::forward<Args>(args)...);
 }

@@ -36,36 +36,29 @@ public:
 
     using logger = std::function<void(source_location loc, const std::string &)>;
 
-    class subscriber {
-    public:
-        subscriber() = default;
-        virtual ~subscriber() = default;
+    /**
+     * @brief installLogger - set logger
+     * @default logs disabled
+     * @param logger
+     */
+    void install_logger(logger logger) { m_logger = logger; }
 
-        subscriber(const subscriber &) = delete;
-        subscriber(subscriber &&) = delete;
-
-        virtual void task_started(const task_info &) = 0;
-        virtual void task_finished(const task_info &) = 0;
-        virtual void task_suspended(const task_info &) = 0;
-        virtual void task_resumed(const task_info &) = 0;
-
-    private:
-    };
-
+    // dispatcher interface
+public:
     void add_initialy_suspended(std::coroutine_handle<> h, source_location loc) noexcept override
     {
-        m_tasks.push_back({.h = h, .suspended = true, .loc = loc, .dep = std::nullopt});
-        log([](std::ostream &stream) -> std::ostream & { return stream << "ADDED AND SUSPENDED"; },
+        m_tasks.push_back({ .handle = h, .suspended = true, .loc = loc, .dep = std::nullopt });
+        log([](std::ostream& stream) -> std::ostream& { return stream << "ADDED AND SUSPENDED"; },
             loc);
 
-        for (const auto &s : m_subscribers) {
-            s->task_started(m_tasks.back());
+        for (const auto& s : m_subscribers) {
+            s->task_started(*this, m_tasks.size() - 1, m_tasks.back());
         }
     }
 
     void suspend(std::coroutine_handle<> h) noexcept override
     {
-        if (auto i = indexOf(h)) {
+        if (const auto i = index_of(h)) {
             const auto ok = mark_suspended(*i);
             assert(ok);
             static_cast<void>(ok);
@@ -75,13 +68,52 @@ public:
     void await_suspend(std::coroutine_handle<> current,
                        std::coroutine_handle<> dep) noexcept override
     {
-        if (auto i = indexOf(current)) {
+        if (const auto i = index_of(current)) {
             const auto ok = mark_suspended(*i, dep);
             assert(ok);
             static_cast<void>(ok);
         }
     }
 
+    /**
+     * @brief proceed - do one cicle of scheduling
+     * Can be called in while:
+     * ```
+     * while(scheduler::instance<scheduler>::proceed()){}
+     * ```
+     * or in some timer if using with some frameworks
+     * @return true if still has some work to do
+     */
+    bool proceed(scheduler& scheduler) noexcept override
+    {
+        if (m_tasks.empty()) {
+            m_i = 0;
+            return false;
+        }
+
+        if (remove_if_done(m_i)) {
+            if (m_tasks.empty()) {
+                m_i = 0;
+                return false;
+            }
+            return true;
+        }
+
+        resume(m_i);
+
+        m_i = scheduler.select(m_i, m_tasks);
+        return true;
+    }
+
+    bool install_subscriber(shared<subscriber>&& s) override { return m_subscribers.insert(std::move(s)).second; }
+    bool deinstall_subscriber(shared<subscriber>&& s) override { return m_subscribers.erase(std::move(s)) != 0; }
+
+    virtual bool empty() override
+    {
+        return m_tasks.empty();
+    }
+
+private:
     bool resume(std::size_t i)
     {
         assert(i < m_tasks.size());
@@ -91,10 +123,10 @@ public:
                 m_tasks[i].loc);
 
             for (const auto &s : m_subscribers) {
-                s->task_resumed(m_tasks[i]);
+                s->task_resumed(*this, i, m_tasks[i]);
             }
             m_enter_coro_context(shared_from_this());
-            m_tasks[i].h.resume();
+            m_tasks[i].handle.resume();
             m_leave_coro_context(shared_from_this());
             return true;
         }
@@ -124,7 +156,7 @@ public:
             }
 
             for (const auto &s : m_subscribers) {
-                s->task_suspended(m_tasks[i]);
+                s->task_suspended(*this, i, m_tasks[i]);
             }
 
             return true;
@@ -132,10 +164,10 @@ public:
         return false;
     }
 
-    std::optional<std::size_t> indexOf(std::coroutine_handle<> h)
+    std::optional<std::size_t> index_of(std::coroutine_handle<> h) const
     {
         for (std::size_t i = 0; i < m_tasks.size(); ++i) {
-            if (m_tasks[i].h == h) {
+            if (m_tasks[i].handle == h) {
                 return i;
             }
         }
@@ -145,12 +177,12 @@ public:
     bool remove_if_done(std::size_t i)
     {
         assert(i < m_tasks.size());
-        if (m_tasks[i].h.done()) {
+        if (m_tasks[i].handle.done()) {
             log([](std::ostream &stream) -> std::ostream & { return stream << "DONE"; },
                 m_tasks[i].loc);
 
             for (std::size_t j = 0; j < m_tasks.size(); ++j) {
-                if (m_tasks[j].dep == m_tasks[i].h) {
+                if (m_tasks[j].dep == m_tasks[i].handle) {
                     log([](std::ostream &stream) -> std::ostream & { return stream << "DEP SOLVED"; },
                         m_tasks[i].loc);
                     m_tasks[j].dep = std::nullopt;
@@ -159,7 +191,7 @@ public:
             }
 
             for (const auto &s : m_subscribers) {
-                s->task_finished(m_tasks[i]);
+                s->task_finished(*this, i, m_tasks[i]);
             }
 
             m_tasks.erase(m_tasks.begin() + i);
@@ -169,65 +201,6 @@ public:
         }
         return false;
     }
-
-    /**
-     * @brief proceed - do one cicle of scheduling
-     * Can be called in while:
-     * ```
-     * while(scheduler::instance<scheduler>::proceed()){}
-     * ```
-     * or in some timer if using with some frameworks
-     * @return true if still has some work to do 
-     */
-    bool proceed(scheduler& scheduler) noexcept override
-    {
-        if (m_tasks.empty()) {
-            m_i = 0;
-            return false;
-        }
-
-        if (remove_if_done(m_i)) {
-            if (m_tasks.empty()) {
-                m_i = 0;
-                return false;
-            }
-            return true;
-        }
-
-        resume(m_i);
-
-        m_i = scheduler.select(m_i, m_tasks);
-        return true;
-    }
-
-    /**
-     * @brief proceed_until_empty - block current thread untill all tasks done
-     * @return true if any task was executed
-     */
-    [[deprecated("Use runners::concurent instead")]] bool proceed_until_empty(scheduler& scheduler)
-    {
-        if (m_tasks.empty()) {
-            return false;
-        }
-        while (proceed(scheduler)) {
-        }
-        return true;
-    }
-
-    /**
-     * @brief installLogger - set logger
-     * @default logs disabled
-     * @param logger
-     */
-    void install_logger(logger logger) { m_logger = logger; }
-
-    bool install_subscriber(subscriber &s) { return m_subscribers.insert(&s).second; }
-    bool deinstall_subscriber(subscriber &s) { return m_subscribers.erase(&s) != 0; }
-
-    /**
-     * @brief tasks - current running tasks
-     */
-    const std::vector<task_info> &tasks() const { return m_tasks; };
 
 protected:
     /**
@@ -251,7 +224,7 @@ private:
     std::size_t m_i = 0;
     std::vector<task_info> m_tasks;
     logger m_logger;
-    std::set<subscriber *> m_subscribers;
+    std::set<shared<subscriber>> m_subscribers;
 };
 
 } // namespace coschedula

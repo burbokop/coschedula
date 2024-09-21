@@ -17,7 +17,7 @@ enable_testing()
 
 add_executable(
     ${PROJECT_NAME} single_thread_suite.cpp fs_suite.cpp multi_thread_suite.cpp
-                    runners_suite.cpp async_suite.cpp)
+                    runners_suite.cpp async_suite.cpp subscriber_suite.cpp)
 
 include(3rdparty_googletest.cmake)
 
