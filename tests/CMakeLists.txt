@@ -21,6 +21,6 @@ add_executable(
 
 include(3rdparty_googletest.cmake)
 
-target_link_libraries(${PROJECT_NAME} coschedula)
+target_link_libraries(${PROJECT_NAME} PRIVATE coschedula)
 target_link_google_test(${PROJECT_NAME})
 target_pedantic_diagnostic(${PROJECT_NAME})

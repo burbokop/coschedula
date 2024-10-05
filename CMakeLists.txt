@@ -15,6 +15,11 @@ option(ENABLE_TESTS "Enable tests" ON)
 option(ENABLE_PEDANTIC_DIAGNOSTIC
        "Enable all compiler warnings. Treat warnings as errors" ON)
 
+option(
+    SANITIZER_BUNDLE
+    "Possible values [nosan - no sanitizer, asan - address leak and others, tsan - thread and others]"
+    "nosan")
+
 if(MSVC)
     option(ENABLE_BENCHMARKS "Enable benchmarks (TODO: fix for msvc)" OFF)
 else()
@@ -40,13 +45,85 @@ else()
 endif()
 
 function(target_pedantic_diagnostic TARGET)
+    if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR (CMAKE_CXX_COMPILER_ID
+                                                    STREQUAL "GNU"))
+        set(CLANG_OR_GCC ON)
+    endif()
+
     if(ENABLE_PEDANTIC_DIAGNOSTIC)
-        if((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR (CMAKE_CXX_COMPILER_ID
-                                                        STREQUAL "GNU"))
+        if(CLANG_OR_GCC)
             target_compile_options(
                 ${TARGET}
-                PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=deprecated
+                PRIVATE -Wall
+                        -Wextra
+                        -Wconversion
+                        -Wpedantic
+                        -Werror
+                        -Wno-error=deprecated
                         -Wno-error=deprecated-declarations)
+            # if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            # target_compile_options(${TARGET} PRIVATE -fanalyzer) else()
+            # target_compile_options(${TARGET} PRIVATE --analyze) endif()
+        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+            target_compile_options(${TARGET} PRIVATE /W4 /WX /analyze)
+        endif()
+    endif()
+
+    message("SANITIZER_BUNDLE: ${SANITIZER_BUNDLE}")
+
+    if((NOT SANITIZER_BUNDLE STREQUAL "nosan")
+       AND (NOT SANITIZER_BUNDLE STREQUAL "asan")
+       AND (NOT SANITIZER_BUNDLE STREQUAL "tsan"))
+        message(
+            FATAL_ERROR
+                "SANITIZER_BUNDLE can be set only to \"nosan\" - no sanitizer, \"asan\" - address leak and others or \"tsan\" - thread and others"
+        )
+    endif()
+
+    set(OTHER_CLANG_AND_GCC_SANITIZERS
+        -fsanitize=undefined
+        -fsanitize=null
+        -fsanitize=return
+        -fsanitize=unreachable
+        -fsanitize=integer-divide-by-zero
+        -fsanitize=signed-integer-overflow
+        -fsanitize=shift
+        -fsanitize=vla-bound
+        -fsanitize=bounds
+        -fsanitize=bounds-strict
+        -fsanitize=alignment
+        -fsanitize=object-size
+        -fsanitize=float-divide-by-zero
+        -fsanitize=float-cast-overflow
+        -fsanitize=nonnull-attribute
+        -fsanitize=returns-nonnull-attribute
+        -fsanitize=bool
+        -fsanitize=enum
+        -fsanitize=vptr
+        -fsanitize=pointer-overflow
+        -fsanitize=builtin)
+
+    set(OTHER_CLANG_AND_GCC_SANITIZERS_LIBS ubsan)
+
+    if(SANITIZER_BUNDLE STREQUAL "asan")
+        if(CLANG_OR_GCC)
+            target_compile_options(
+                ${TARGET} PRIVATE -fsanitize=address -fsanitize=leak
+                                  ${OTHER_CLANG_AND_GCC_SANITIZERS})
+            target_link_libraries(
+                ${TARGET} PRIVATE asan ${OTHER_CLANG_AND_GCC_SANITIZERS_LIBS})
+        elseif()
+            message(FATAL_ERROR "TODO")
+        endif()
+    elseif(SANITIZER_BUNDLE STREQUAL "tsan")
+        if(CLANG_OR_GCC)
+            target_compile_options(
+                ${TARGET} PRIVATE -fsanitize=thread
+                                  ${OTHER_CLANG_AND_GCC_SANITIZERS})
+            target_link_libraries(
+                ${TARGET} PRIVATE tsan ${OTHER_CLANG_AND_GCC_SANITIZERS_LIBS})
+        elseif()
+            message(FATAL_ERROR "TODO")
         endif()
     endif()
 endfunction()

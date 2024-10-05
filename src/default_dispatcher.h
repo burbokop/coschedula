@@ -6,6 +6,7 @@
 #include "scheduler.h"
 #include <cassert>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -194,7 +195,9 @@ private:
                 s->task_finished(*this, i, m_tasks[i]);
             }
 
-            m_tasks.erase(m_tasks.begin() + i);
+            // TODO: replace by some sort of `numeric_cast`
+            assert(i <= std::numeric_limits<std::ptrdiff_t>::max());
+            m_tasks.erase(m_tasks.begin() + static_cast<std::ptrdiff_t>(i));
             if (m_i >= m_tasks.size())
                 m_i = 0;
             return true;
