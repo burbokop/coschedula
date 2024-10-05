@@ -30,7 +30,7 @@ inline std::string gen_text(std::size_t word_len, std::size_t count)
     std::string result;
     result.reserve(word_len * count);
     for (std::size_t i = 0; i < count; ++i) {
-        result += word_len;
+        result += static_cast<char>(word_len);
         if (i < count - 1) {
             result += ' ';
         }

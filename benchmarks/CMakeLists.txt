@@ -24,6 +24,8 @@ endif()
 
 add_dependencies(${PROJECT_NAME} GoogleBenchmark)
 
-target_link_libraries(${PROJECT_NAME} coschedula)
+target_link_libraries(${PROJECT_NAME} PRIVATE coschedula)
+# target_compile_options(${PROJECT_NAME} PRIVATE -no-pie)
+# target_compile_options(${PROJECT_NAME} PRIVATE -fPIE)
 target_link_google_benchmark(${PROJECT_NAME})
 target_pedantic_diagnostic(${PROJECT_NAME})

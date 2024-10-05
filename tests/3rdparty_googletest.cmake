@@ -15,7 +15,7 @@ function(target_link_google_test TARGET)
     target_include_directories(${TARGET}
                                PRIVATE ${GOOGLE_TEST_INSTALL_PREFIX}/include)
     target_link_directories(${TARGET} PRIVATE ${GOOGLE_TEST_INSTALL_PREFIX}/lib)
-    target_link_libraries(${TARGET} gtest gtest_main)
+    target_link_libraries(${TARGET} PRIVATE gtest gtest_main)
     include(GoogleTest)
     gtest_discover_tests(${TARGET})
 endfunction()
